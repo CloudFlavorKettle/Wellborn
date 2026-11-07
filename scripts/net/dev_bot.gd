@@ -5,7 +5,7 @@ extends Node
 ## routine:
 ##   fish_once  물가로 걸어가 한 번 낚시하고, 입질에 챔질한 뒤 종료
 ##   fish       계속 낚시
-##   cook_once  한 마리 낚고, 모닥불로 가서 올리고, 익으면 꺼낸 뒤 종료
+##   cook_once  한 마리 낚고, 모닥불로 가서 올리고, 익으면 꺼내 먹은 뒤 종료
 ##   idle       가만히 서서 주변 플레이어 수만 보고
 ##   wander     부하 측정용. 육지를 돌아다니다가 물가에 닿으면 가끔 낚시한다. 보고는 하지 않는다.
 
@@ -36,6 +36,10 @@ func _ready() -> void:
 	var cook: CookingAuthority = get_tree().get_first_node_in_group(&"cooking_authority")
 	if cook:
 		cook.client_event.connect(_on_cook_event)
+	var br: BreathAuthority = get_tree().get_first_node_in_group(&"breath_authority")
+	if br:
+		br.client_event.connect(func(kind: StringName, data: Dictionary) -> void:
+			if kind != &"breath": Net.log_line("bot 숨 이벤트: %s %s" % [kind, data]))
 	var auth: FishingAuthority = get_tree().get_first_node_in_group(&"fishing_authority")
 	auth.client_event.connect(_on_event)
 	Net.log_line("bot 시작: %s" % routine)
@@ -124,13 +128,19 @@ func _on_cook_event(kind: StringName, data: Dictionary) -> void:
 	if routine != "cook_once":
 		return
 	Net.log_line("bot 굽기 이벤트: %s %s" % [kind, data])
-	if kind == &"slot" and int(data.get("player", 0)) == _player.peer_id():
-		if data["state"] == "done" and not data.has("taken_by"):
+	if kind != &"slot":
+		return
+	var mine: bool = int(data.get("player", 0)) == _player.peer_id()
+	var taken_by_me: bool = int(data.get("taken_by", 0)) == _player.peer_id()
+	if mine or taken_by_me:
+		if mine and data["state"] == "done" and not data.has("taken_by"):
 			await get_tree().create_timer(1.0).timeout
 			_interact.press()
-		elif data.has("taken_by"):
+		elif taken_by_me:
+			await get_tree().create_timer(1.5).timeout
+			_interact.eat()
 			await get_tree().create_timer(2.0).timeout
-			Net.log_line("bot 종료 (굽기 완료)")
+			Net.log_line("bot 종료 (굽기·먹기 완료)")
 			get_tree().quit()
 
 

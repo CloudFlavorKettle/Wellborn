@@ -1,0 +1,15 @@
+{
+  "_comment": "숨 규칙 수치 (CONTENT). 1단계는 숨이 0이어도 아무 일도 없다. 규칙은 scripts/breath/breath_authority.gd",
+  "max": 100,
+  "start": 70,
+  "drain_per_min": 2.0,
+  "regen_near_fire_per_min": 6.0,
+  "regen_near_others_per_min": 3.0,
+  "fire_radius_m": 3.0,
+  "others_radius_m": 4.0,
+  "food": {
+    "cooked_base": 20,
+    "cooked_per_cm": 0.5,
+    "burnt": 6
+  }
+}

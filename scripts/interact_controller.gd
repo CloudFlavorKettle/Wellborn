@@ -12,15 +12,19 @@ const DENY_TEXT: Dictionary = {
 	"full": "모닥불 자리가 다 찼어요.",
 	"no_fish": "구울 물고기가 없어요.",
 	"nothing_ready": "아직 익은 게 없어요.",
+	"no_food": "먹을 게 없어요.",
+	"raw_only": "날것은 먹기 힘들어요. 모닥불에 구워 보세요.",
 }
 
 var _cooking: CookingAuthority
+var _breath: BreathAuthority
 var _inventory: InventoryAuthority
 var _player: CharacterBody3D
 var _fishing: FishingController
 var _near_fire: Campfire
 var _last_context: String = ""
 var _raw_count: int = 0
+var _food_name: String = ""
 
 
 func _ready() -> void:
@@ -30,9 +34,23 @@ func _ready() -> void:
 	_inventory = get_tree().get_first_node_in_group(&"inventory_authority")
 	if _cooking:
 		_cooking.client_event.connect(_on_cooking_event)
+	_breath = get_tree().get_first_node_in_group(&"breath_authority")
+	if _breath:
+		_breath.client_event.connect(_on_breath_event)
 	if _inventory:
 		_inventory.local_changed.connect(func(items: Array) -> void:
-			_raw_count = items.filter(InventoryAuthority.is_raw_fish).size())
+			_raw_count = items.filter(InventoryAuthority.is_raw_fish).size()
+			_food_name = ""
+			for it: Dictionary in items:
+				if String(it.get("id", "")).begins_with("cooked:"):
+					_food_name = _inventory.item_name(it["id"])
+					break
+			if _food_name == "":
+				for it: Dictionary in items:
+					if it.get("id", "") == "burnt":
+						_food_name = _inventory.item_name("burnt")
+						break
+			_last_context = "")
 
 
 func _is_mine() -> bool:
@@ -40,9 +58,18 @@ func _is_mine() -> bool:
 
 
 func _unhandled_input(e: InputEvent) -> void:
-	if not _is_mine() or not e.is_action_pressed(&"fish"):
+	if not _is_mine():
 		return
-	press()
+	if e.is_action_pressed(&"fish"):
+		press()
+	elif e.is_action_pressed(&"eat"):
+		eat()
+
+
+## E 한 번. 가방의 먹을 것을 하나 먹는다 (서버가 고른다).
+func eat() -> void:
+	if _breath:
+		_breath.rpc_request_eat.rpc_id(1)
 
 
 ## Space 한 번. 봇도 이걸 부른다.
@@ -72,6 +99,8 @@ func _physics_process(_delta: float) -> void:
 			ctx = "구울 물고기가 없어요"
 	else:
 		ctx = "Space: 낚시"
+	if _food_name != "":
+		ctx += "\nE: %s 먹기" % _food_name
 	if ctx != _last_context:
 		_last_context = ctx
 		context_changed.emit(ctx)
@@ -97,6 +126,18 @@ func _nearest_fire() -> Campfire:
 			best_d = d
 			best = n
 	return best
+
+
+func _on_breath_event(kind: StringName, data: Dictionary) -> void:
+	if not _is_mine() or int(data.get("player", 0)) != _player.peer_id():
+		return
+	match kind:
+		&"ate":
+			_player.play_action(&"Interact")
+			var n: String = _inventory.item_name(data["item"])
+			message.emit("%s%s 먹었어요. 숨 +%d" % [n, FishingController._object_particle(n), int(data["gain"])])
+		&"denied":
+			message.emit(DENY_TEXT.get(data.get("reason", ""), ""))
 
 
 func _on_cooking_event(kind: StringName, data: Dictionary) -> void:

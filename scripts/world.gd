@@ -21,6 +21,8 @@ const NAME_MAX_LEN: int = 12
 @onready var _authority: FishingAuthority = $Server/FishingAuthority
 @onready var _inventory: InventoryAuthority = $Server/InventoryAuthority
 @onready var _cooking: CookingAuthority = $Server/CookingAuthority
+@onready var _breath: BreathAuthority = $Server/BreathAuthority
+@onready var _breath_bar: ProgressBar = get_node_or_null("UI/Breath/Bar")
 @onready var _context: Label = get_node_or_null("UI/Context")
 @onready var _bag_label: Label = get_node_or_null("UI/Inventory")
 @onready var _toast: Label = get_node_or_null("UI/Toast")
@@ -47,6 +49,7 @@ func _ready() -> void:
 		_authority.viewers_of = _viewers_of
 		_cooking.inventory = _inventory
 		_cooking.register_fires()
+		_breath.inventory = _inventory
 		# 낚은 물고기는 가방으로.
 		_authority.event.connect(func(pid: int, kind: StringName, data: Dictionary) -> void:
 			if kind == &"result" and data.get("outcome") == "caught":
@@ -85,6 +88,7 @@ func _add_player(peer: int) -> void:
 	_authority.register_player(peer, p)
 	_inventory.register_player(peer)
 	_cooking.register_player(peer, p)
+	_breath.register_player(peer, p)
 	Net.log_line("플레이어 입장: %d (현재 %d명)" % [peer, _players.get_child_count()])
 	_on_player_node_added(p)
 	_update_interest()
@@ -138,6 +142,7 @@ func _remove_player(peer: int) -> void:
 	_authority.unregister_player(peer)
 	_inventory.unregister_player(peer)
 	_cooking.unregister_player(peer)
+	_breath.unregister_player(peer)
 	var p: Node = _players.get_node_or_null(str(peer))
 	if p:
 		p.queue_free()
@@ -223,6 +228,11 @@ func _on_player_node_added(node: Node) -> void:
 		interact.message.connect(_toast.show_message)
 	if _context:
 		interact.context_changed.connect(func(t: String) -> void: _context.text = t)
+	if _breath_bar:
+		_breath.client_event.connect(func(kind: StringName, data: Dictionary) -> void:
+			if kind == &"breath" and int(data["player"]) == p.peer_id():
+				_breath_bar.max_value = float(data["max"])
+				_breath_bar.value = float(data["breath"]))
 	if _bag_label:
 		_inventory.local_changed.connect(func(items: Array) -> void:
 			_bag_label.text = "가방: 비어 있음" if items.is_empty() else "가방\n" + _inventory.describe(items))

@@ -106,10 +106,12 @@
 
 **네트워크 구조 (2026-11-07)**: Godot ENet. 오토로드 `Net`(scripts/net/net.gd)이 실행 인자로 모드를 정한다 — `--server`(전용), `--connect=주소`(클라이언트), 인자 없음(호스트=서버+플레이어1, 에디터 F5용).
 - 플레이어 노드 이름 = 접속 ID. 서버(`scripts/world.gd`)만 만들고 지운다. MultiplayerSpawner가 복제.
+- 카메라(`scripts/follow_camera.gd`): 우클릭 드래그로 자유 회전, 휠 거리. 이동 입력은 클라이언트가 카메라 yaw 기준 월드 방향으로 바꿔서 보낸다(`camera_yaw()`). 서버는 카메라를 모른다.
 - 이동: 클라이언트는 `submit_input` RPC로 입력만 보낸다. 서버가 움직이고 `server_pos`/`server_rot_y`/`net_speed`를 Sync로 내보낸다. 내 캐릭터는 예측 후 보정, 남의 캐릭터는 보간.
 - 관심 영역: 서버가 0.25초마다 거리로 Sync 가시성을 정한다(`interest_radius`, 기본 30m). 안 보이면 그 클라이언트에서 노드가 사라지고 낚시 이벤트도 안 간다.
 - 낚시: `FishingAuthority`는 서버에서만 판정. 요청은 `rpc_request_cast`/`rpc_request_hook`, 결과는 `client_event`. 낚시 중 이동 잠금도 서버가 건다.
 - 개발용: `--bot=fish_once|fish|idle|wander`, `--shot=폴더`, `--interest-radius=M`, `--port=N`, `--max-clients=N`, `--stats`. 서버 1 + 봇 클라이언트 2를 따로 띄워 검증한다. 부하는 `--stats` + `wander` 봇 여럿으로 잰다.
+  - `--dev-script=경로`: 내 캐릭터가 생긴 뒤 리포 밖 GDScript(Node)를 월드에 붙인다. 실제 게임 흐름(오토로드 포함) 안에서 테스트할 때 쓴다. `godot --script`는 오토로드 `Net`을 못 찾아 더는 쓰지 않는다.
 - 서버 성능 규칙 (2026-11-07 측정 후):
   - 화면 없는 실행은 프레임 제한이 없어 CPU를 헛돌린다. 전용 서버는 60fps, 봇은 30fps로 묶는다(`Net._ready`).
   - 전용 서버는 모델·애니메이션·스프링본·낚시 연출을 계산하지 않는다. 위치와 충돌만 판정한다.

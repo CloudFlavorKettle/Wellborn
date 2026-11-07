@@ -10,6 +10,7 @@ extends Node
 ##   --interest-radius=M   (서버, 개발용) 관심 영역 반경을 바꾼다. 0 이하면 월드 기본값.
 ##   --max-clients=N       (서버, 개발용) 접속 상한을 바꾼다. 부하 측정용.
 ##   --stats               (서버, 개발용) 5초마다 인원·처리 시간·메모리·네트워크량을 기록한다.
+##   --dev-script=경로     (개발용) 내 캐릭터가 생긴 뒤 이 GDScript(Node 상속)를 월드에 붙인다. 리포 밖 테스트용.
 ##   (인자 없음)            호스트: 서버 겸 플레이어 1. 에디터에서 F5로 혼자 개발할 때 쓴다.
 ##
 ## 예) 서버:     godot --headless --path . -- --server
@@ -29,6 +30,7 @@ var player_name: String = ""
 var interest_radius_override: float = 0.0
 var max_clients: int = MAX_CLIENTS
 var stats: bool = false
+var dev_script: String = ""
 
 
 func _init() -> void:
@@ -53,6 +55,8 @@ func _init() -> void:
 			max_clients = maxi(1, arg.trim_prefix("--max-clients=").to_int())
 		elif arg == "--stats":
 			stats = true
+		elif arg.begins_with("--dev-script="):
+			dev_script = arg.trim_prefix("--dev-script=")
 		elif arg.begins_with("--interest-radius="):
 			interest_radius_override = arg.trim_prefix("--interest-radius=").to_float()
 

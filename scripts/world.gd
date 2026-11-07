@@ -199,7 +199,7 @@ func _on_player_node_added(node: Node) -> void:
 	if not p.is_local():
 		return
 	_camera.target = p
-	_camera.global_position = p.global_position + _camera.offset
+	_camera.snap_to_target()
 	if Net.player_name != "":
 		rpc_set_name.rpc_id(1, Net.player_name)
 	var ctl: FishingController = p.get_node("FishingController")
@@ -211,6 +211,14 @@ func _on_player_node_added(node: Node) -> void:
 		bot.set(&"routine", Net.bot)
 		p.add_child(bot)
 	Net.log_line("내 캐릭터: %s" % p.name)
+	if Net.dev_script != "":
+		var scr: Script = load(Net.dev_script)
+		if scr:
+			var dev: Node = scr.new()
+			dev.name = "DevScript"
+			add_child(dev)
+		else:
+			Net.log_line("dev-script를 열지 못했다: %s" % Net.dev_script)
 
 
 func _show(text: String) -> void:

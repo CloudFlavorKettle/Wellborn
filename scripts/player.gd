@@ -174,12 +174,20 @@ func _physics_process(delta: float) -> void:
 	_update_animation()
 
 
+## 키 입력을 카메라가 보는 방향 기준의 월드 방향으로 바꾼다. 서버는 이 월드 방향만 받는다.
 func _read_local_input() -> Vector2:
 	if input_locked:
 		return Vector2.ZERO
 	if input_override != null:
-		return input_override
-	return Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		return input_override  # 봇은 월드 방향을 직접 준다.
+	var raw: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if raw == Vector2.ZERO:
+		return raw
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null or not cam.has_method(&"camera_yaw"):
+		return raw
+	# 카메라 yaw가 0이면 카메라는 +Z에서 -Z를 본다. "앞"(raw.y=-1)이 -Z가 되도록 돌린다.
+	return raw.rotated(-cam.camera_yaw())
 
 
 func _simulate(input_dir: Vector2, delta: float) -> void:

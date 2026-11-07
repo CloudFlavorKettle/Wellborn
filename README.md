@@ -73,7 +73,7 @@ The full design document (Korean) lives in [CLAUDE.md](CLAUDE.md).
    ```
 3. Open `project.godot` in **[Godot 4.7](https://godotengine.org/download)** and press **F5**.
 
-**Controls:** `WASD` or arrow keys to move, `Space` by the water to fish, mouse wheel to zoom the camera.
+**Controls:** `WASD` or arrow keys to move (relative to the camera), hold the right mouse button and drag to orbit the camera, mouse wheel to zoom, `Space` by the water to fish.
 
 #### Playing together
 
@@ -176,7 +176,7 @@ The project is at a very early stage and the architecture is still moving, so co
    ```
 3. **[Godot 4.7](https://godotengine.org/download)**로 `project.godot`를 열고 **F5**로 실행합니다.
 
-**조작:** `WASD` 또는 방향키로 이동, 물가에서 `Space`로 낚시, 마우스 휠로 카메라 거리 조절.
+**조작:** `WASD` 또는 방향키로 이동(카메라가 보는 방향 기준), 마우스 오른쪽 버튼을 누른 채 드래그로 시점 회전, 휠로 거리 조절, 물가에서 `Space`로 낚시.
 
 #### 같이 하기
 

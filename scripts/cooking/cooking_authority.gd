@@ -72,7 +72,7 @@ func _snapshot() -> Dictionary:
 		var arr: Array = []
 		for s: Dictionary in _fires[id]["slots"]:
 			var elapsed: float = _clock_ms - float(s["start_ms"]) if s["state"] != "empty" else 0.0
-			arr.append({"state": s["state"], "item": s["item"], "player": s["player"], "elapsed_ms": elapsed})
+			arr.append({"state": s["state"], "item": s["item"], "player": s["player"], "size_cm": int(s.get("size_cm", 20)), "elapsed_ms": elapsed})
 		out[id] = arr
 	return out
 
@@ -103,7 +103,7 @@ func rpc_full_state(snapshot: Dictionary) -> void:
 		for i in arr.size():
 			var s: Dictionary = arr[i]
 			client_event.emit(&"slot", {"fire": fire_id, "slot": i, "state": s["state"], "item": s["item"], "player": s["player"],
-				"elapsed_ms": s.get("elapsed_ms", 0.0), "cook_ms": cook_time_ms, "burn_ms": burn_time_ms, "silent": true})
+				"size_cm": int(s.get("size_cm", 20)), "elapsed_ms": s.get("elapsed_ms", 0.0), "cook_ms": cook_time_ms, "burn_ms": burn_time_ms, "silent": true})
 
 
 func _sender() -> int:
@@ -150,11 +150,12 @@ func request_put(player_id: int, fire_id: String) -> void:
 	if slot_idx < 0:
 		event.emit(&"denied", {"player": player_id, "reason": "full"})
 		return
-	var item: String = inventory.take_first(player_id, InventoryAuthority.is_raw_fish)
-	if item == "":
+	var item: Dictionary = inventory.take_first(player_id, InventoryAuthority.is_raw_fish)
+	if item.is_empty():
 		event.emit(&"denied", {"player": player_id, "reason": "no_fish"})
 		return
-	fire["slots"][slot_idx] = {"state": "cooking", "item": item, "player": player_id, "start_ms": _clock_ms}
+	fire["slots"][slot_idx] = {"state": "cooking", "item": String(item["id"]), "size_cm": int(item.get("size_cm", 20)), "player": player_id, "start_ms": _clock_ms}
+	_face_fire(player_id, fire)
 	_emit_slot(fire_id, slot_idx)
 
 
@@ -177,9 +178,17 @@ func request_take(player_id: int, fire_id: String) -> void:
 		return
 	var s: Dictionary = fire["slots"][pick]
 	var got: String = "burnt" if s["state"] == "burnt" else "cooked:" + String(s["item"])
-	inventory.add(player_id, got)
+	inventory.add(player_id, {"id": got, "size_cm": int(s.get("size_cm", 20))})
 	fire["slots"][pick] = _empty_slot()
+	_face_fire(player_id, fire)
 	_emit_slot(fire_id, pick, {"taken_by": player_id, "got": got})
+
+
+## 서버: 플레이어 몸을 모닥불 쪽으로 돌린다 (Sync로 남에게도 보인다).
+func _face_fire(player_id: int, fire: Dictionary) -> void:
+	var body: Node3D = _players.get(player_id)
+	if body and body.has_method(&"face_toward"):
+		body.face_toward((fire["node"] as Node3D).global_position)
 
 
 func _physics_process(delta: float) -> void:
@@ -202,6 +211,7 @@ func _physics_process(delta: float) -> void:
 func _emit_slot(fire_id: String, slot_idx: int, extra: Dictionary = {}) -> void:
 	var s: Dictionary = _fires[fire_id]["slots"][slot_idx]
 	var data: Dictionary = {"fire": fire_id, "slot": slot_idx, "state": s["state"], "item": s["item"], "player": s["player"],
+		"size_cm": int(s.get("size_cm", 20)),
 		"elapsed_ms": (_clock_ms - float(s["start_ms"])) if s["state"] != "empty" else 0.0, "cook_ms": cook_time_ms, "burn_ms": burn_time_ms}
 	data.merge(extra)
 	event.emit(&"slot", data)

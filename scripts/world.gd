@@ -50,7 +50,7 @@ func _ready() -> void:
 		# 낚은 물고기는 가방으로.
 		_authority.event.connect(func(pid: int, kind: StringName, data: Dictionary) -> void:
 			if kind == &"result" and data.get("outcome") == "caught":
-				_inventory.add(pid, String(data["fish_id"])))
+				_inventory.add(pid, {"id": String(data["fish_id"]), "size_cm": int(data.get("size_cm", 20))}))
 		if not Net.is_dedicated():
 			_add_player(1)
 	else:

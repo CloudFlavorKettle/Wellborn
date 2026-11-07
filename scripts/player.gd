@@ -221,6 +221,15 @@ func _follow_server(delta: float) -> void:
 	rotation.y = lerp_angle(rotation.y, server_rot_y, k)
 
 
+## 어떤 지점을 바라본다 (수평만). 서버가 부르면 Sync로 남에게 보이고, 내 화면은 InteractController가 따로 맞춘다.
+func face_toward(point: Vector3) -> void:
+	var d: Vector3 = point - global_position
+	if Vector2(d.x, d.z).length() < 0.05:
+		return
+	rotation.y = atan2(-d.x, -d.z)
+	server_rot_y = rotation.y
+
+
 ## 행동 애니메이션을 한 번 재생하고, 끝나면 대기로 돌아간다. 이동 잠금 중에만 의미가 있다.
 func play_action(anim_name: StringName) -> void:
 	if not _anim.has_animation(anim_name):
@@ -234,6 +243,11 @@ func play_action(anim_name: StringName) -> void:
 func _update_animation() -> void:
 	if not _anim.active:
 		return
+	# 잠금 없이 재생한 행동(굽기 손짓)은 끝날 때까지 두고, 움직이면 바로 끊는다.
+	if not input_locked and _action_anim != &"":
+		if _anim.current_animation == _action_anim and Vector2(velocity.x, velocity.z).length() < 0.1:
+			return
+		_action_anim = &""
 	if input_locked:
 		_anim.speed_scale = 1.0
 		if _action_anim != &"" and _anim.current_animation != _action_anim:

@@ -3,7 +3,8 @@ extends Node
 ## 서버 권한 가방. 누가 무엇을 몇 개 가졌는지는 서버만 안다.
 ## 클라이언트는 자기 가방 내용만 받아서 보여 준다 (RPC로 통째로 보냄. 1단계는 물건이 몇 개 안 된다).
 ##
-## 물건 ID 규칙 (1단계):
+## 물건 하나 = Dictionary {"id": String, "size_cm": int}. 크기는 낚은 물고기의 것이 익힌 뒤에도 따라간다.
+## id 규칙 (1단계):
 ##   "<fish_id>"         날 물고기 (data/fish.json의 id)
 ##   "cooked:<fish_id>"  구운 물고기
 ##   "burnt"             탄 생선
@@ -41,24 +42,23 @@ func unregister_player(player_id: int) -> void:
 	_bags.erase(player_id)
 
 
-func add(player_id: int, item: String, count: int = 1) -> void:
+func add(player_id: int, item: Dictionary) -> void:
 	if not _bags.has(player_id):
 		return
-	for i in count:
-		_bags[player_id].append(item)
+	_bags[player_id].append(item)
 	_push(player_id)
 
 
-## 조건에 맞는 첫 물건을 꺼낸다. 없으면 "".
-func take_first(player_id: int, predicate: Callable) -> String:
+## 조건에 맞는 첫 물건을 꺼낸다. 없으면 빈 Dictionary.
+func take_first(player_id: int, predicate: Callable) -> Dictionary:
 	var bag: Array = _bags.get(player_id, [])
 	for i in bag.size():
 		if predicate.call(bag[i]):
-			var item: String = bag[i]
+			var item: Dictionary = bag[i]
 			bag.remove_at(i)
 			_push(player_id)
 			return item
-	return ""
+	return {}
 
 
 func items_of(player_id: int) -> Array:
@@ -83,8 +83,9 @@ func rpc_bag(items: Array) -> void:
 
 # ---------- 이름 ----------
 
-static func is_raw_fish(item: String) -> bool:
-	return not item.begins_with("cooked:") and item != "burnt"
+static func is_raw_fish(item: Dictionary) -> bool:
+	var id: String = item.get("id", "")
+	return not id.begins_with("cooked:") and id != "burnt"
 
 
 func item_name(item: String) -> String:
@@ -99,11 +100,12 @@ func item_name(item: String) -> String:
 func describe(items: Array) -> String:
 	var counts: Dictionary = {}
 	var order: Array = []
-	for item: String in items:
-		if not counts.has(item):
-			order.append(item)
-		counts[item] = int(counts.get(item, 0)) + 1
+	for item: Dictionary in items:
+		var id: String = item.get("id", "")
+		if not counts.has(id):
+			order.append(id)
+		counts[id] = int(counts.get(id, 0)) + 1
 	var lines: PackedStringArray = []
-	for item: String in order:
-		lines.append("%s ×%d" % [item_name(item), counts[item]])
+	for id: String in order:
+		lines.append("%s ×%d" % [item_name(id), counts[id]])
 	return "\n".join(lines)

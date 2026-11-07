@@ -32,7 +32,7 @@ func _ready() -> void:
 	_interact = _player.get_node("InteractController")
 	var inv: InventoryAuthority = get_tree().get_first_node_in_group(&"inventory_authority")
 	if inv:
-		inv.local_changed.connect(func(items: Array) -> void: Net.log_line("bot 가방: %s" % [items]))
+		inv.local_changed.connect(func(items: Array) -> void: Net.log_line("bot 가방: %s" % [items.map(func(it: Dictionary) -> String: return "%s(%dcm)" % [it.get("id", "?"), int(it.get("size_cm", 0))])]))
 	var cook: CookingAuthority = get_tree().get_first_node_in_group(&"cooking_authority")
 	if cook:
 		cook.client_event.connect(_on_cook_event)

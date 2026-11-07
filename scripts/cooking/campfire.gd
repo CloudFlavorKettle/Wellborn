@@ -22,7 +22,7 @@ var _slot_burn_ms: Array[float] = [10000.0, 10000.0, 10000.0]
 var _light: OmniLight3D
 var _smoke: CPUParticles3D
 var _burnt_smoke: CPUParticles3D
-var _sizzle: CPUParticles3D
+var _sizzles: Array[CPUParticles3D] = []
 var _t: float = 0.0
 
 
@@ -62,10 +62,10 @@ func _on_event(kind: StringName, data: Dictionary) -> void:
 	_slot_burn_ms[i] = float(data.get("burn_ms", 10000.0))
 	# 서버가 알려 준 경과 시간만큼 앞당겨서, 늦게 봐도 색이 맞게.
 	_slot_t0[i] = Time.get_ticks_msec() - float(data.get("elapsed_ms", 0.0))
-	_apply_slot(i, String(data.get("item", "")))
+	_apply_slot(i, String(data.get("item", "")), int(data.get("size_cm", 20)))
 
 
-func _apply_slot(i: int, item: String) -> void:
+func _apply_slot(i: int, item: String, size_cm: int = 20) -> void:
 	if i >= _skewers.size():
 		return
 	var state: String = slot_states[i]
@@ -74,14 +74,17 @@ func _apply_slot(i: int, item: String) -> void:
 			(_fish[i] as Node).queue_free()
 			_fish[i] = null
 	elif _fish[i] == null:
-		var fish: FishModel = FishModel.create(item, 0.34)
+		# 잡은 크기대로. 멀리서도 보이게 1.3배, 너무 작거나 크지 않게.
+		var length: float = clampf(size_cm / 100.0 * 1.3, 0.18, 0.62)
+		var fish: FishModel = FishModel.create(item, length)
 		# 꼬치를 따라 비스듬히, 머리가 위로 가게 꽂힌다.
 		fish.position = Vector3(0.0, SKEWER_LENGTH * 0.62, 0.0)
 		fish.rotation = Vector3(0.0, 0.0, PI / 2.0)
 		_skewers[i].add_child(fish)
 		_fish[i] = fish
 	_burnt_smoke.emitting = slot_states.has("burnt")
-	_sizzle.emitting = slot_states.has("cooking") or slot_states.has("done")
+	for k in _sizzles.size():
+		_sizzles[k].emitting = slot_states[k] == "cooking" or slot_states[k] == "done"
 
 
 func _doneness(i: int) -> float:
@@ -99,7 +102,7 @@ func _doneness(i: int) -> float:
 func _process(delta: float) -> void:
 	_t += delta
 	# 불빛 흔들림
-	_light.light_energy = 0.55 + sin(_t * 9.0) * 0.07 + sin(_t * 23.0) * 0.04
+	_light.light_energy = 0.4 + sin(_t * 9.0) * 0.05 + sin(_t * 23.0) * 0.03
 	# 꼬치 위 생선: 색만 서서히 변한다. 꽂힌 채로 움직이면 징그러워서 흔들지 않는다.
 	for i in _skewers.size():
 		var fish: FishModel = _fish[i]
@@ -153,51 +156,80 @@ func _build_logs() -> void:
 
 
 func _build_fire() -> void:
+	# 겉불: 주황, 세로로 긴 불꽃 잎
 	var fire: CPUParticles3D = CPUParticles3D.new()
-	fire.amount = 36
-	fire.lifetime = 0.8
+	fire.amount = 22
+	fire.lifetime = 0.6
 	fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	fire.emission_sphere_radius = 0.14
+	fire.emission_sphere_radius = 0.12
 	fire.direction = Vector3.UP
-	fire.spread = 12.0
-	fire.initial_velocity_min = 0.6
-	fire.initial_velocity_max = 1.1
-	fire.gravity = Vector3(0.0, 0.8, 0.0)
-	fire.scale_amount_min = 0.5
-	fire.scale_amount_max = 0.9
+	fire.spread = 8.0
+	fire.initial_velocity_min = 0.3
+	fire.initial_velocity_max = 0.55
+	fire.gravity = Vector3(0.0, 0.5, 0.0)
+	fire.scale_amount_min = 0.7
+	fire.scale_amount_max = 1.0
 	var curve: Curve = Curve.new()
-	curve.add_point(Vector2(0.0, 1.0))
-	curve.add_point(Vector2(1.0, 0.1))
+	curve.add_point(Vector2(0.0, 0.7))
+	curve.add_point(Vector2(0.25, 1.0))
+	curve.add_point(Vector2(1.0, 0.05))
 	fire.scale_amount_curve = curve
 	var grad: Gradient = Gradient.new()
-	grad.set_color(0, Color(1.0, 0.85, 0.35, 1.0))
-	grad.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
-	grad.add_point(0.45, Color(1.0, 0.45, 0.1, 0.9))
+	grad.set_color(0, Color(1.0, 0.62, 0.15, 0.6))
+	grad.set_color(1, Color(0.75, 0.12, 0.02, 0.0))
+	grad.add_point(0.5, Color(0.98, 0.35, 0.06, 0.45))
 	fire.color_ramp = grad
-	fire.mesh = _billboard_quad(0.22, true)
-	fire.position = Vector3(0.0, 0.18, 0.0)
+	fire.mesh = _billboard_quad(0.2, true, 1.9)
+	fire.position = Vector3(0.0, 0.16, 0.0)
 	add_child(fire)
 
-	_sizzle = CPUParticles3D.new()
-	_sizzle.amount = 10
-	_sizzle.lifetime = 0.5
-	_sizzle.emitting = false
-	_sizzle.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	_sizzle.emission_box_extents = Vector3(0.25, 0.02, 0.12)
-	_sizzle.direction = Vector3.UP
-	_sizzle.spread = 35.0
-	_sizzle.initial_velocity_min = 0.3
-	_sizzle.initial_velocity_max = 0.7
-	_sizzle.gravity = Vector3(0.0, -1.5, 0.0)
-	_sizzle.scale_amount_min = 0.15
-	_sizzle.scale_amount_max = 0.3
-	var sg: Gradient = Gradient.new()
-	sg.set_color(0, Color(1.0, 0.9, 0.6, 1.0))
-	sg.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
-	_sizzle.color_ramp = sg
-	_sizzle.mesh = _billboard_quad(0.1, true)
-	_sizzle.position = Vector3(0.0, 0.48, 0.0)
-	add_child(_sizzle)
+	# 심지: 밝은 노랑, 작고 낮게
+	var core: CPUParticles3D = CPUParticles3D.new()
+	core.amount = 12
+	core.lifetime = 0.4
+	core.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	core.emission_sphere_radius = 0.07
+	core.direction = Vector3.UP
+	core.spread = 6.0
+	core.initial_velocity_min = 0.25
+	core.initial_velocity_max = 0.45
+	core.gravity = Vector3(0.0, 0.4, 0.0)
+	core.scale_amount_min = 0.6
+	core.scale_amount_max = 0.9
+	core.scale_amount_curve = curve
+	var cg: Gradient = Gradient.new()
+	cg.set_color(0, Color(1.0, 0.95, 0.7, 0.75))
+	cg.set_color(1, Color(1.0, 0.7, 0.2, 0.0))
+	core.color_ramp = cg
+	core.mesh = _billboard_quad(0.14, true, 1.6)
+	core.position = Vector3(0.0, 0.14, 0.0)
+	add_child(core)
+
+	# 불티: 드문드문 튀어 오르는 작은 점
+	var ember: CPUParticles3D = CPUParticles3D.new()
+	ember.amount = 10
+	ember.lifetime = 1.6
+	ember.explosiveness = 0.0
+	ember.randomness = 0.8
+	ember.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	ember.emission_sphere_radius = 0.12
+	ember.direction = Vector3.UP
+	ember.spread = 25.0
+	ember.initial_velocity_min = 0.6
+	ember.initial_velocity_max = 1.2
+	ember.gravity = Vector3(0.3, -0.4, 0.0)
+	ember.damping_min = 0.6
+	ember.damping_max = 1.2
+	ember.scale_amount_min = 0.12
+	ember.scale_amount_max = 0.22
+	var eg: Gradient = Gradient.new()
+	eg.set_color(0, Color(1.0, 0.8, 0.4, 1.0))
+	eg.set_color(1, Color(1.0, 0.3, 0.05, 0.0))
+	ember.color_ramp = eg
+	ember.mesh = _billboard_quad(0.1, true)
+	ember.position = Vector3(0.0, 0.25, 0.0)
+	add_child(ember)
+
 
 	_smoke = CPUParticles3D.new()
 	_smoke.amount = 8
@@ -238,8 +270,8 @@ func _build_fire() -> void:
 
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.65, 0.3)
-	_light.light_energy = 0.55
-	_light.omni_range = 3.2
+	_light.light_energy = 0.4
+	_light.omni_range = 2.8
 	_light.omni_attenuation = 1.6
 	_light.shadow_enabled = false
 	_light.position = Vector3(0.0, 0.5, 0.0)
@@ -271,6 +303,28 @@ func _build_skewers() -> void:
 		stick.position = Vector3(0.0, SKEWER_LENGTH * 0.5, 0.0)
 		pivot.add_child(stick)
 		_skewers.append(pivot)
+		# 생선 자리에서 튀는 기름방울
+		var sz: CPUParticles3D = CPUParticles3D.new()
+		sz.amount = 6
+		sz.lifetime = 0.45
+		sz.emitting = false
+		sz.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		sz.emission_sphere_radius = 0.06
+		sz.direction = Vector3.UP
+		sz.spread = 40.0
+		sz.initial_velocity_min = 0.25
+		sz.initial_velocity_max = 0.6
+		sz.gravity = Vector3(0.0, -1.5, 0.0)
+		sz.scale_amount_min = 0.12
+		sz.scale_amount_max = 0.22
+		var sg: Gradient = Gradient.new()
+		sg.set_color(0, Color(1.0, 0.92, 0.65, 1.0))
+		sg.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
+		sz.color_ramp = sg
+		sz.mesh = _billboard_quad(0.1, true)
+		sz.position = Vector3(0.0, SKEWER_LENGTH * 0.62, 0.0)
+		pivot.add_child(sz)
+		_sizzles.append(sz)
 
 
 static var _soft_dot: GradientTexture2D
@@ -293,9 +347,9 @@ static func _soft_dot_texture() -> GradientTexture2D:
 	return _soft_dot
 
 
-func _billboard_quad(size: float, additive: bool) -> QuadMesh:
+func _billboard_quad(size: float, additive: bool, tall: float = 1.0) -> QuadMesh:
 	var q: QuadMesh = QuadMesh.new()
-	q.size = Vector2(size, size)
+	q.size = Vector2(size, size * tall)
 	var m: StandardMaterial3D = StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_texture = _soft_dot_texture()

@@ -62,7 +62,7 @@ func _physics_process(_delta: float) -> void:
 	_near_fire = _nearest_fire()
 	var ctx: String = ""
 	if _fishing.phase != FishingController.Phase.IDLE:
-		ctx = "Space: 챔질"
+		ctx = "찌가 쑥 들어가면 Space!"
 	elif _near_fire:
 		if _near_fire.has_ready_slot():
 			ctx = "Space: 꺼내기"
@@ -75,6 +75,13 @@ func _physics_process(_delta: float) -> void:
 	if ctx != _last_context:
 		_last_context = ctx
 		context_changed.emit(ctx)
+
+
+## 모닥불을 보고 손을 뻗는다. 내 화면에서만 (남에게는 서버 회전과 애니메이션 신호가 간다).
+func _gesture() -> void:
+	if _near_fire:
+		_player.face_toward(_near_fire.global_position)
+	_player.play_action(&"Interact")
 
 
 func _nearest_fire() -> Campfire:
@@ -106,12 +113,14 @@ func _on_cooking_event(kind: StringName, data: Dictionary) -> void:
 			var state: String = data["state"]
 			if data.has("taken_by"):
 				if int(data["taken_by"]) == me:
+					_gesture()
 					var got: String = data["got"]
 					var n: String = _inventory.item_name(got)
 					message.emit("앗, 탔어요…" if got == "burnt" else "%s%s 꺼냈어요." % [n, FishingController._object_particle(n)])
 			elif int(data["player"]) == me:
 				match state:
 					"cooking":
+						_gesture()
 						var n: String = _inventory.item_name(data["item"])
 						message.emit("%s%s 모닥불에 올렸어요." % [n, FishingController._object_particle(n)])
 					"done":

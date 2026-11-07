@@ -29,7 +29,24 @@ const BODY_PART_SUFFIXES: PackedStringArray = ["_Body", "_Head", "_ArmLeft", "_A
 ## 몸 파츠 중에서도 추가로 숨길 것 (투구, 망토 등). 모델마다 인스펙터에서 조정.
 @export var hidden_parts: PackedStringArray = []
 
+## 옷 색 변형 팔레트 (색상환 회전량, 바퀴 단위). 0번은 원래 색. 서버가 비어 있는 가장 작은 번호를 준다.
+## 셰이더(YIQ 회전)는 값이 커질수록 빨강→보라→파랑→청록→초록→노랑→주황으로 돈다.
+## 원래 드레스가 빨강이라: 0=빨강, 0.35=파랑, 0.60=초록, 0.16=보라, 0.90=주황, 0.47=청록.
+const CLOTH_HUES: Array[float] = [0.0, 0.35, 0.60, 0.16, 0.90, 0.47]
+
 # ---- 서버 → 클라이언트 동기화 (Sync 노드가 복제) ----
+## 머리 위 이름. 서버가 다듬어서 확정한다.
+var display_name: String = "":
+	set(value):
+		display_name = value
+		if is_node_ready():
+			_apply_name()
+## 옷 색 번호 (CLOTH_HUES 인덱스).
+var color_variant: int = 0:
+	set(value):
+		color_variant = value
+		if is_node_ready():
+			_apply_color()
 var server_pos: Vector3 = Vector3.ZERO
 var server_rot_y: float = 0.0
 var net_speed: float = 0.0
@@ -52,6 +69,7 @@ var _action_anim: StringName = &""
 ## 모델 쪽 스켈레톤이 %GeneralSkeleton 이름으로 임포트돼 있어야 한다.
 @onready var _anim: AnimationPlayer = $AnimationPlayer
 @onready var _model: Node3D = $Model
+@onready var _name_tag: Label3D = $NameTag
 
 
 func peer_id() -> int:
@@ -66,10 +84,40 @@ func _ready() -> void:
 	if strip_equipment:
 		_strip_equipment()
 	_anim.play(ANIM_IDLE)
+	_apply_name()
+	_apply_color()
 	if not multiplayer.is_server():
 		# 스폰 시점의 서버 위치로 시작한다.
 		global_position = server_pos
 		rotation.y = server_rot_y
+
+
+func _apply_name() -> void:
+	_name_tag.text = display_name
+	_name_tag.visible = display_name != ""
+
+
+## 이름에 CLOTH가 들어간 재질만 색상환을 돌린다. 재질은 모델끼리 공유되므로 이 캐릭터용으로 복제해서 쓴다.
+func _apply_color() -> void:
+	var hue: float = CLOTH_HUES[posmod(color_variant, CLOTH_HUES.size())]
+	for node: Node in _model.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = node
+		if mi.mesh == null:
+			continue
+		for i in mi.mesh.get_surface_count():
+			var mat: Material = mi.get_surface_override_material(i)
+			if mat == null:
+				var base: Material = mi.mesh.surface_get_material(i)
+				if not (base is ShaderMaterial and String(base.resource_name).contains("CLOTH")):
+					continue
+				mat = base.duplicate()
+				if mat.next_pass:
+					mat.next_pass = mat.next_pass.duplicate()
+				mi.set_surface_override_material(i, mat)
+			var m: Material = mat
+			while m is ShaderMaterial:
+				(m as ShaderMaterial).set_shader_parameter(&"_WellbornHueShift", hue)
+				m = m.next_pass
 
 
 func _strip_equipment() -> void:

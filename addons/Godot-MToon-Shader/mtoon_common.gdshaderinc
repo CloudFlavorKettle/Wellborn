@@ -45,6 +45,22 @@ uniform vec4 _ShadeColor : source_color = vec4(0.97, 0.81, 0.86, 1); // "Shade C
 uniform sampler2D _MainTex : source_color, hint_default_white;
 uniform vec4 _MainTex_ST = vec4(1.0,1.0,0.0,0.0);
 uniform sampler2D _ShadeTexture : source_color, hint_default_white;
+// Wellborn 패치 2: 플레이어별 옷 색 변형. 색상환을 이만큼(바퀴 단위, 0~1) 돌린다. 0이면 원래 색.
+uniform float _WellbornHueShift = 0.0;
+
+vec3 wellborn_hue_shift(vec3 c, float turns) {
+	if (turns == 0.0) {
+		return c;
+	}
+	const mat3 to_yiq = mat3(vec3(0.299, 0.596, 0.211), vec3(0.587, -0.274, -0.523), vec3(0.114, -0.322, 0.312));
+	const mat3 to_rgb = mat3(vec3(1.0, 1.0, 1.0), vec3(0.956, -0.272, -1.106), vec3(0.621, -0.647, 1.703));
+	vec3 yiq = to_yiq * c;
+	float hue = atan(yiq.z, yiq.y) + turns * 6.2831853;
+	float chroma = length(yiq.yz);
+	yiq.y = chroma * cos(hue);
+	yiq.z = chroma * sin(hue);
+	return clamp(to_rgb * yiq, 0.0, 1.0);
+}
 uniform float _BumpScale : hint_range(-16,16) = 1.0; // "Normal Scale"
 uniform sampler2D _BumpMap : hint_normal; // "Normal Texture"
 uniform sampler2D _ReceiveShadowTexture : hint_default_white;
@@ -240,6 +256,8 @@ void fragment() {
 
 	shade *= _ShadeColor;
 	lit *= _Color;
+	lit.rgb = wellborn_hue_shift(lit.rgb, _WellbornHueShift);
+	shade.rgb = wellborn_hue_shift(shade.rgb, _WellbornHueShift);
 	
 	//shade = min(shade, lit); ///// Mimic look of non-PBR min() clamp we commented out below.
 

@@ -9,6 +9,9 @@ const DEV_BOT: Script = preload("res://scripts/net/dev_bot.gd")
 @export var interest_radius: float = 30.0
 ## 관심 영역을 다시 계산하는 주기(초).
 @export var interest_interval: float = 0.25
+## 이름 최대 글자 수.
+const NAME_MAX_LEN: int = 12
+
 ## 처음 나타나는 자리. 접속 순서대로 옆으로 조금씩 벌린다.
 @export var spawn_origin: Vector3 = Vector3(0.0, 0.0, -3.0)
 
@@ -60,6 +63,8 @@ func _add_player(peer: int) -> void:
 	_spawn_count += 1
 	p.position = spawn_origin + Vector3(offset, 0.0, 0.0)
 	p.server_pos = p.position
+	p.color_variant = _free_color_variant()
+	p.display_name = "물나기 %d" % _spawn_count
 	# 자기 자신에게는 항상 보인다. 다른 사람에게는 관심 영역 계산이 정한다.
 	var sync: MultiplayerSynchronizer = p.get_node("Sync")
 	sync.set_visibility_for(peer, true)
@@ -68,6 +73,50 @@ func _add_player(peer: int) -> void:
 	Net.log_line("플레이어 입장: %d (현재 %d명)" % [peer, _players.get_child_count()])
 	_on_player_node_added(p)
 	_update_interest()
+
+
+## 지금 있는 사람들이 안 쓰는 가장 작은 색 번호.
+func _free_color_variant() -> int:
+	var used: Array = []
+	for n: Node in _players.get_children():
+		used.append(n.get(&"color_variant"))
+	var i: int = 0
+	while used.has(i):
+		i += 1
+	return i
+
+
+## 클라이언트 → 서버: 이 이름으로 불러 달라. 서버가 다듬어서 확정한다.
+@rpc("any_peer", "call_local", "reliable")
+func rpc_set_name(requested: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer: int = multiplayer.get_remote_sender_id()
+	if peer == 0:
+		peer = multiplayer.get_unique_id()
+	var p: Node = _players.get_node_or_null(str(peer))
+	if p == null:
+		return
+	var clean: String = sanitize_name(requested)
+	if clean != "":
+		p.set(&"display_name", clean)
+		Net.log_line("이름: %d → %s" % [peer, clean])
+
+
+## 앞뒤 공백·제어 문자를 지우고, 공백은 하나로, 길이는 NAME_MAX_LEN까지.
+static func sanitize_name(raw: String) -> String:
+	var out: String = ""
+	var prev_space: bool = false
+	for ch: String in raw.strip_edges():
+		var code: int = ch.unicode_at(0)
+		if code < 32 or code == 127 or (code >= 0x200B and code <= 0x200F) or code == 0xFEFF:
+			continue
+		var is_space: bool = ch == " " or ch == "	"
+		if is_space and prev_space:
+			continue
+		out += " " if is_space else ch
+		prev_space = is_space
+	return out.substr(0, NAME_MAX_LEN).strip_edges()
 
 
 func _remove_player(peer: int) -> void:
@@ -126,6 +175,8 @@ func _on_player_node_added(node: Node) -> void:
 		return
 	_camera.target = p
 	_camera.global_position = p.global_position + _camera.offset
+	if Net.player_name != "":
+		rpc_set_name.rpc_id(1, Net.player_name)
 	var ctl: FishingController = p.get_node("FishingController")
 	if _toast:
 		ctl.message.connect(_toast.show_message)

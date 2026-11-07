@@ -5,6 +5,7 @@ extends Node
 ##   --server              화면 없는 전용 서버. 플레이어 캐릭터 없음.
 ##   --connect=주소[:포트]  클라이언트로 접속.
 ##   --port=N              서버 포트 (기본 DEFAULT_PORT).
+##   --name=이름           머리 위에 보일 이름. 서버가 다듬는다. 없으면 서버가 정해 준다.
 ##   --bot=이름            개발용 자동 조작 (scripts/net/dev_bot.gd).
 ##   --interest-radius=M   (서버, 개발용) 관심 영역 반경을 바꾼다. 0 이하면 월드 기본값.
 ##   (인자 없음)            호스트: 서버 겸 플레이어 1. 에디터에서 F5로 혼자 개발할 때 쓴다.
@@ -22,6 +23,7 @@ var mode: Mode = Mode.HOST
 var address: String = "127.0.0.1"
 var port: int = DEFAULT_PORT
 var bot: String = ""
+var player_name: String = ""
 var interest_radius_override: float = 0.0
 
 
@@ -39,6 +41,8 @@ func _init() -> void:
 				address = target
 		elif arg.begins_with("--port="):
 			port = arg.trim_prefix("--port=").to_int()
+		elif arg.begins_with("--name="):
+			player_name = arg.trim_prefix("--name=")
 		elif arg.begins_with("--bot="):
 			bot = arg.trim_prefix("--bot=")
 		elif arg.begins_with("--interest-radius="):

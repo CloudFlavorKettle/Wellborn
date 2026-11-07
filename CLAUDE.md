@@ -91,6 +91,14 @@
 - [ ] 우물 대사 초안 (깨어남, 얼굴 고르기, 이름, 낚시 가르치기, 밤이 올 때 한마디) — `docs/well_dialogue.md`
 - [ ] 세계관 문서 — `docs/lore.md` (이 문서 3절을 옮겨서 확장)
 
+**네트워크 구조 (2026-11-07)**: Godot ENet. 오토로드 `Net`(scripts/net/net.gd)이 실행 인자로 모드를 정한다 — `--server`(전용), `--connect=주소`(클라이언트), 인자 없음(호스트=서버+플레이어1, 에디터 F5용).
+- 플레이어 노드 이름 = 접속 ID. 서버(`scripts/world.gd`)만 만들고 지운다. MultiplayerSpawner가 복제.
+- 이동: 클라이언트는 `submit_input` RPC로 입력만 보낸다. 서버가 움직이고 `server_pos`/`server_rot_y`/`net_speed`를 Sync로 내보낸다. 내 캐릭터는 예측 후 보정, 남의 캐릭터는 보간.
+- 관심 영역: 서버가 0.25초마다 거리로 Sync 가시성을 정한다(`interest_radius`, 기본 30m). 안 보이면 그 클라이언트에서 노드가 사라지고 낚시 이벤트도 안 간다.
+- 낚시: `FishingAuthority`는 서버에서만 판정. 요청은 `rpc_request_cast`/`rpc_request_hook`, 결과는 `client_event`. 낚시 중 이동 잠금도 서버가 건다.
+- 개발용: `--bot=fish_once|fish|idle`, `--shot=폴더`, `--interest-radius=M`, `--port=N`. 서버 1 + 봇 클라이언트 2를 따로 띄워 검증한다.
+- 서버 배포처는 미정. 오라클 키오스크 운영 서버(PyKiosk)에는 올리지 않는다 — 매장 결제가 붙어 있고 메모리 여유가 없다.
+
 ## 6. 작업 규칙 (Claude Code에게)
 
 - 1단계 범위 밖의 기능(전투, 길드, 거래소, 인벤토리 UI 등)은 제안하지도 만들지도 않는다. "나중에"라고만 표시.

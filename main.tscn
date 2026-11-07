@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://cqappq2bv44wn"]
 
-[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://b70vb3ev5b5yo" path="res://scripts/follow_camera.gd" id="2_camera"]
 [ext_resource type="Shader" path="res://shaders/water.gdshader" id="3_water"]
 [ext_resource type="Script" path="res://scripts/fishing/fishing_authority.gd" id="4_authority"]
 [ext_resource type="Script" path="res://scripts/ui/toast.gd" id="5_toast"]
+[ext_resource type="Script" path="res://scripts/world.gd" id="6_world"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.55, 0.85, 1)
@@ -57,6 +57,7 @@ subdivide_depth = 18
 size = Vector3(40, 1.2, 14)
 
 [node name="Main" type="Node3D" unique_id=1782040662]
+script = ExtResource("6_world")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=85292418]
 environment = SubResource("Environment_main")
@@ -111,13 +112,15 @@ shape = SubResource("BoxShape3D_water_area")
 [node name="FishingAuthority" type="Node" parent="Server"]
 script = ExtResource("4_authority")
 
-[node name="Player" parent="." unique_id=2110010298 instance=ExtResource("1_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+[node name="Players" type="Node3D" parent="."]
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1187548174 node_paths=PackedStringArray("target")]
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/player.tscn")
+spawn_path = NodePath("../Players")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1187548174]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 script = ExtResource("2_camera")
-target = NodePath("../Player")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -154,4 +157,3 @@ theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 script = ExtResource("5_toast")
 
-[connection signal="message" from="Player/FishingController" to="UI/Toast" method="show_message"]

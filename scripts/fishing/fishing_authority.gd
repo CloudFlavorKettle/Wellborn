@@ -1,13 +1,16 @@
 class_name FishingAuthority
 extends Node
 ## 서버 권한 낚시 판정.
-## 클라이언트는 "던지기", "챔질"을 요청만 하고, 던질 수 있는지·언제 입질하는지·성공했는지·무슨 물고기인지는 전부 여기서 정한다.
-## 지금은 같은 프로세스 안의 노드지만, 네트워크가 붙으면 이 노드는 서버에서만 돈다.
-## event 시그널이 나중에 RPC로 바뀐다.
+## 클라이언트는 "던지기", "챔질"을 요청(RPC)만 하고, 던질 수 있는지·언제 입질하는지·성공했는지·무슨 물고기인지는 전부 서버의 이 노드가 정한다.
+## 같은 노드가 서버와 클라이언트 양쪽 씬에 있지만, 판정 로직은 서버에서만 돈다.
+## 결과는 그 플레이어를 볼 수 있는 사람(관심 영역)에게만 client_event로 전달된다.
 
 ## kind: &"cast_ok" {target}, &"cast_denied" {reason}, &"nibble" {}, &"bite" {window_ms},
 ##       &"result" {outcome: "caught"|"early"|"late", fish_id, name, size_cm}
+## 서버 쪽 신호. 테스트와 로그용.
 signal event(player_id: int, kind: StringName, data: Dictionary)
+## 클라이언트 쪽 신호. 연출은 이것만 듣는다.
+signal client_event(player_id: int, kind: StringName, data: Dictionary)
 
 enum State { WAITING, BITE }
 
@@ -37,6 +40,9 @@ var _total_weight: int = 0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 ## 서버 시계(ms). 물리 프레임마다 흐른다.
 var _clock_ms: float = 0.0
+## 서버: 이 플레이어를 볼 수 있는 접속 ID 목록을 돌려주는 함수. 월드가 관심 영역으로 채운다.
+## 비어 있으면 모두에게 보낸다.
+var viewers_of: Callable
 
 
 func _ready() -> void:
@@ -46,6 +52,7 @@ func _ready() -> void:
 	else:
 		_rng.randomize()
 	_load_fish()
+	event.connect(_relay_to_clients)
 
 
 func _load_fish() -> void:
@@ -59,6 +66,51 @@ func _load_fish() -> void:
 	for f: Dictionary in _fish:
 		_total_weight += int(f["weight"])
 
+
+# ---------- 네트워크 ----------
+
+## 클라이언트 → 서버: 던지기 요청.
+@rpc("any_peer", "call_local", "reliable")
+func rpc_request_cast(target: Vector3) -> void:
+	if multiplayer.is_server():
+		request_cast(_sender(), target)
+
+
+## 클라이언트 → 서버: 챔질 요청.
+@rpc("any_peer", "call_local", "reliable")
+func rpc_request_hook() -> void:
+	if multiplayer.is_server():
+		request_hook(_sender())
+
+
+## 서버 → 클라이언트: 낚시 이벤트 전달.
+@rpc("authority", "call_local", "reliable")
+func rpc_client_event(player_id: int, kind: StringName, data: Dictionary) -> void:
+	client_event.emit(player_id, kind, data)
+
+
+func _sender() -> int:
+	var id: int = multiplayer.get_remote_sender_id()
+	return id if id != 0 else multiplayer.get_unique_id()
+
+
+func _relay_to_clients(player_id: int, kind: StringName, data: Dictionary) -> void:
+	if not multiplayer.has_multiplayer_peer():
+		client_event.emit(player_id, kind, data)
+		return
+	var targets: Array = [player_id] if kind == &"cast_denied" else _viewers(player_id)
+	for peer: int in targets:
+		rpc_client_event.rpc_id(peer, player_id, kind, data)
+
+
+func _viewers(player_id: int) -> Array:
+	var list: Array = viewers_of.call(player_id) if viewers_of.is_valid() else _players.keys()
+	if not list.has(player_id):
+		list.append(player_id)
+	return list
+
+
+# ---------- 판정 ----------
 
 func register_player(player_id: int, body: Node3D) -> void:
 	_players[player_id] = body
@@ -101,6 +153,7 @@ func request_cast(player_id: int, target: Vector3) -> void:
 		"next_ms": _clock_ms + _rng.randf_range(first_wait_s.x, first_wait_s.y) * 1000.0,
 		"bite_end_ms": 0.0,
 	}
+	body.set(&"server_locked", true)
 	event.emit(player_id, &"cast_ok", {"target": surface})
 
 
@@ -118,6 +171,8 @@ func request_hook(player_id: int) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		return
 	_clock_ms += delta * 1000.0
 	for player_id: int in _sessions.keys():
 		var s: Dictionary = _sessions[player_id]
@@ -138,6 +193,9 @@ func _physics_process(delta: float) -> void:
 func _finish(player_id: int, outcome: String) -> void:
 	var s: Dictionary = _sessions[player_id]
 	_sessions.erase(player_id)
+	var body: Node3D = _players.get(player_id)
+	if body:
+		body.set(&"server_locked", false)
 	var data: Dictionary = {"outcome": outcome}
 	if outcome == "caught":
 		var f: Dictionary = s["fish"]

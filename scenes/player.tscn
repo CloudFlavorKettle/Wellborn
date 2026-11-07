@@ -6,6 +6,17 @@
 [ext_resource type="Script" path="res://scripts/fishing/fishing_rod.gd" id="4_rod"]
 [ext_resource type="Script" path="res://scripts/fishing/fishing_controller.gd" id="5_fishing"]
 
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_player"]
+properties/0/path = NodePath(".:server_pos")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:server_rot_y")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:net_speed")
+properties/2/spawn = false
+properties/2/replication_mode = 1
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.3
 height = 1.45
@@ -31,3 +42,9 @@ script = ExtResource("4_rod")
 
 [node name="FishingController" type="Node" parent="."]
 script = ExtResource("5_fishing")
+
+[node name="Sync" type="MultiplayerSynchronizer" parent="."]
+root_path = NodePath("..")
+replication_interval = 0.05
+replication_config = SubResource("SceneReplicationConfig_player")
+public_visibility = false

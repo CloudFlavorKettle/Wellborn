@@ -1,13 +1,13 @@
 class_name FishingController
 extends Node
-## 클라이언트 쪽 낚시. 입력을 서버(FishingAuthority)에 요청으로 보내고, 서버가 보낸 이벤트를 연출로 바꾼다.
+## 클라이언트 쪽 낚시. 모든 플레이어 노드에 붙는다.
+## - 누구의 캐릭터든: 서버가 보낸 이벤트(client_event)로 그 사람의 낚싯대·찌·동작을 보여 준다.
+## - 내 캐릭터일 때만: 입력을 서버에 요청(RPC)으로 보내고, 메시지와 카메라를 다룬다.
 ## 여기서는 아무것도 판정하지 않는다. 입질 시점·성공 여부·물고기는 서버가 정한다.
 ## 플레이어 노드의 자식으로 두고, 형제 노드로 FishingRod가 있어야 한다.
 
 signal message(text: String)
 
-## 네트워크 붙기 전 임시 ID. 나중에 접속 ID로 바뀐다.
-@export var player_id: int = 1
 ## 앞으로 몇 m 지점에 던질지.
 @export var cast_distance: float = 4.5
 
@@ -33,31 +33,34 @@ func _ready() -> void:
 	if _authority == null:
 		push_warning("FishingController: FishingAuthority가 씬에 없다. 낚시 비활성.")
 		return
-	_authority.register_player(player_id, _player)
-	_authority.event.connect(_on_event)
+	_authority.client_event.connect(_on_event)
+
+
+func _is_mine() -> bool:
+	return _player.has_method(&"is_local") and _player.is_local()
 
 
 func _unhandled_input(e: InputEvent) -> void:
-	if not e.is_action_pressed(&"fish") or _authority == null:
+	if _authority == null or not _is_mine() or not e.is_action_pressed(&"fish"):
 		return
+	press()
+
+
+## 낚시 버튼 한 번. 개발용 봇도 이걸 부른다.
+func press() -> void:
 	match phase:
 		Phase.IDLE:
-			_request_cast()
+			var forward: Vector3 = -_player.global_basis.z
+			forward.y = 0.0
+			_authority.rpc_request_cast.rpc_id(1, _player.global_position + forward.normalized() * cast_distance)
 		Phase.CASTING, Phase.WAITING:
-			_authority.request_hook(player_id)
+			_authority.rpc_request_hook.rpc_id(1)
 		_:
 			pass
 
 
-func _request_cast() -> void:
-	var forward: Vector3 = -_player.global_basis.z
-	forward.y = 0.0
-	forward = forward.normalized()
-	_authority.request_cast(player_id, _player.global_position + forward * cast_distance)
-
-
 func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
-	if pid != player_id:
+	if pid != _player.peer_id():
 		return
 	match kind:
 		&"cast_ok":
@@ -65,7 +68,8 @@ func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
 			_pending_bite = false
 			_player.input_locked = true
 			_player.play_action(&"Interact")
-			_set_camera_focus(data["target"])
+			if _is_mine():
+				_set_camera_focus(data["target"])
 			await _rod.cast_to(data["target"])
 			if phase == Phase.CASTING:
 				phase = Phase.WAITING
@@ -73,7 +77,7 @@ func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
 					_rod.bite()
 		&"cast_denied":
 			var t: String = DENY_TEXT.get(data.get("reason", ""), "")
-			if t != "":
+			if t != "" and _is_mine():
 				message.emit(t)
 		&"nibble":
 			if phase == Phase.WAITING:
@@ -90,17 +94,19 @@ func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
 func _show_result(data: Dictionary) -> void:
 	phase = Phase.REELING
 	var outcome: String = data.get("outcome", "")
-	match outcome:
-		"caught":
-			var fish_name: String = data["name"]
-			message.emit("%s%s 낚았어요! (%dcm)" % [fish_name, _object_particle(fish_name), int(data["size_cm"])])
-		"early":
-			message.emit("너무 일렀어요…")
-		"late":
-			message.emit("놓쳤어요…")
+	if _is_mine():
+		match outcome:
+			"caught":
+				var fish_name: String = data["name"]
+				message.emit("%s%s 낚았어요! (%dcm)" % [fish_name, _object_particle(fish_name), int(data["size_cm"])])
+			"early":
+				message.emit("너무 일렀어요…")
+			"late":
+				message.emit("놓쳤어요…")
 	_player.play_action(&"Interact")
 	await _rod.reel(outcome == "caught", int(data.get("size_cm", 20)))
-	_clear_camera_focus()
+	if _is_mine():
+		_clear_camera_focus()
 	_player.input_locked = false
 	phase = Phase.IDLE
 

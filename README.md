@@ -2,9 +2,9 @@
 
 # Wellborn · 물나기
 
-**A cozy, co-op life MMORPG — built in the open, one small piece at a time.**
+**A cozy fantasy life game — play alone or with a few friends. Built in the open, one small piece at a time.**
 
-*누구나 서버를 열고, 누구나 세계를 보탤 수 있는 협력·생활 MMORPG*
+*혼자서도, 친구 몇 명과 함께여도 좋은 생활 판타지 게임. 누구나 서버를 열고 세계를 보탤 수 있다.*
 
 [![License: MIT](https://img.shields.io/badge/code-MIT-blue.svg)](LICENSE)
 [![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478cbf.svg?logo=godotengine&logoColor=white)](https://godotengine.org)
@@ -24,7 +24,7 @@
 > *The world is made by the developer. Its future is made by the players, together.*
 > *Anyone can run a server. Anyone can add to the world.*
 
-Wellborn is a solo-developed, open-source MMORPG in the spirit of the old-school online worlds: slow, social, and built around everyday life rather than combat. It starts as something very small — **two people fishing by a lake and grilling their catch over a campfire** — and grows into an MMO only when each step has proven to be fun on its own.
+Wellborn is a solo-developed, open-source fantasy life game in the spirit of the old-school online worlds: slow, social, and built around everyday life rather than combat. It works on your own, and it is better with a few friends (2–8) in the same world. It starts as something very small — **two people fishing by a lake and grilling their catch over a campfire** — and only grows when each step has proven to be fun on its own. The server is built so the world can grow larger later, but small and cozy comes first.
 
 ### The world
 
@@ -59,7 +59,7 @@ There are no classes. What you do is who you become.
 | **1 · The Waterside** | Two players fishing and grilling by a lake. Waking at the Well, fishing, campfire cooking, sharing food, a 2–4 player dedicated server. No death, no pressure. | 🚧 In progress — character, movement, fishing, and a 2–4 player dedicated server are in |
 | **2 · Breath** | The full Breath system, death and returning at the Well, leaving items behind, gathering and crafting, water-shaping, a few NPCs. First public build. | Planned |
 | **3 · The World** | Real CORE/CONTENT split with JSON content packs, server owner settings, the first community content, combat. | Planned |
-| **4+** | Life-shaping, generational story, identity across worlds, scale. | Later |
+| **4+** | Life-shaping, generational story, identity across worlds. Growing to a larger world is an option, not a promise. | Later |
 
 The full design document (Korean) lives in [CLAUDE.md](CLAUDE.md).
 
@@ -127,7 +127,7 @@ The project is at a very early stage and the architecture is still moving, so co
 > *게임의 세계는 개발자가 만들지만, 그 세계의 미래는 플레이어들이 함께 만든다.*
 > *누구나 서버를 열 수 있고, 누구나 콘텐츠를 추가할 수 있다.*
 
-물나기(Wellborn)는 옛날 온라인 게임 감성의 1인 개발 오픈소스 MMORPG입니다. 전투보다 일상과 협력이 중심인, 느리고 사람 냄새 나는 게임을 지향합니다. 시작은 아주 작습니다. **둘이서 호숫가에서 낚시하고 모닥불에 구워 먹는 힐링 게임**에서 출발해, 각 단계가 그 자체로 재미있다는 게 확인될 때만 MMO로 넓혀 갑니다.
+물나기(Wellborn)는 옛날 온라인 게임 감성의 1인 개발 오픈소스 생활 판타지 게임입니다. 전투보다 일상과 협력이 중심인, 느리고 사람 냄새 나는 게임을 지향합니다. 혼자서도 할 수 있고, 친구 몇 명(2~8명)이 같은 세계에 들어오면 더 좋습니다. 시작은 아주 작습니다. **둘이서 호숫가에서 낚시하고 모닥불에 구워 먹는 힐링 게임**에서 출발해, 각 단계가 그 자체로 재미있다는 게 확인될 때만 넓혀 갑니다. 서버는 나중에 더 큰 세계로 키울 수 있게 만들어 두었지만, 작고 아늑한 게 먼저입니다.
 
 ### 세계관
 
@@ -162,7 +162,7 @@ The project is at a very early stage and the architecture is still moving, so co
 | **1 「물가」** | 둘이서 낚시하고 모닥불에 구워 먹는 게임. 우물에서 깨어나기, 낚시, 모닥불 요리, 음식 나눠 주기, 2~4명 전용 서버. 죽음도 긴장도 없음. | 🚧 진행 중 — 캐릭터, 이동, 낚시, 2~4명 전용 서버 완료 |
 | **2 「숨」** | 숨 시스템 전체, 죽음과 우물 부활, 물건 두고 오기, 채집·제작, 물로 빚기, NPC 몇 명. 첫 공개 빌드. | 예정 |
 | **3 「세계」** | CORE/CONTENT 분리와 JSON 콘텐츠 팩, 서버 주인 설정, 첫 유저 콘텐츠, 전투. | 예정 |
-| **4 이후** | 생명 빚기, 세대 스토리, 서버 간 정체성 이동, 규모. | 나중에 |
+| **4 이후** | 생명 빚기, 세대 스토리, 서버 간 정체성 이동. 더 큰 세계로 키우는 건 약속이 아닌 선택지. | 나중에 |
 
 전체 설계 문서는 [CLAUDE.md](CLAUDE.md)에 있습니다.
 

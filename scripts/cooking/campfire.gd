@@ -13,7 +13,7 @@ const SKEWER_LEAN_DEG: float = 52.0
 ## 자리별 상태. CookingAuthority 설정과 같은 개수여야 한다 (register 때 맞춘다).
 var slot_states: Array[String] = ["empty", "empty", "empty"]
 
-var _skewers: Array[Node3D] = []       # 꼬치(막대) 노드. 생선은 이 아래에 붙는다.
+var _skewers: Array[Node3D] = []       # 꼬치 자리(pivot). 막대와 생선이 이 아래에 붙는다. 비어 있으면 숨긴다.
 var _fish: Array = [null, null, null]  # FishModel 또는 null
 ## 익는 정도 연출용 시계. 서버 시간과 정확히 같을 필요는 없다 (색만 바뀐다).
 var _slot_t0: Array[float] = [0.0, 0.0, 0.0]
@@ -73,7 +73,14 @@ func _apply_slot(i: int, item: String, size_cm: int = 20) -> void:
 		if _fish[i] != null:
 			(_fish[i] as Node).queue_free()
 			_fish[i] = null
+		_skewers[i].visible = false
 	elif _fish[i] == null:
+		# 꼬치는 꽂을 때 생긴다. 땅에서 쑥 올라오는 짧은 연출.
+		var pivot: Node3D = _skewers[i]
+		pivot.visible = true
+		pivot.scale = Vector3(1.0, 0.05, 1.0)
+		var tw: Tween = pivot.create_tween()
+		tw.tween_property(pivot, "scale", Vector3.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		# 잡은 크기대로. 멀리서도 보이게 1.3배, 너무 작거나 크지 않게.
 		var length: float = clampf(size_cm / 100.0 * 1.3, 0.18, 0.62)
 		var fish: FishModel = FishModel.create(item, length)
@@ -302,6 +309,7 @@ func _build_skewers() -> void:
 		stick.mesh = c
 		stick.position = Vector3(0.0, SKEWER_LENGTH * 0.5, 0.0)
 		pivot.add_child(stick)
+		pivot.visible = false  # 꽂을 때만 보인다
 		_skewers.append(pivot)
 		# 생선 자리에서 튀는 기름방울
 		var sz: CPUParticles3D = CPUParticles3D.new()

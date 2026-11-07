@@ -2,6 +2,9 @@
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://b70vb3ev5b5yo" path="res://scripts/follow_camera.gd" id="2_camera"]
+[ext_resource type="Shader" path="res://shaders/water.gdshader" id="3_water"]
+[ext_resource type="Script" path="res://scripts/fishing/fishing_authority.gd" id="4_authority"]
+[ext_resource type="Script" path="res://scripts/ui/toast.gd" id="5_toast"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.38, 0.55, 0.85, 1)
@@ -20,12 +23,38 @@ ambient_light_source = 3
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.42, 0.6, 0.35, 1)
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
+[sub_resource type="BoxMesh" id="BoxMesh_land"]
 material = SubResource("StandardMaterial3D_ground")
-size = Vector2(40, 40)
+size = Vector3(40, 1, 26)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
-size = Vector3(40, 1, 40)
+[sub_resource type="BoxShape3D" id="BoxShape3D_land"]
+size = Vector3(40, 1, 26)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lakebed"]
+albedo_color = Color(0.32, 0.36, 0.28, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lakebed"]
+material = SubResource("StandardMaterial3D_lakebed")
+size = Vector3(40, 1, 14)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_lakebed"]
+size = Vector3(40, 1, 14)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_shore_wall"]
+size = Vector3(40, 3, 0.3)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_water"]
+render_priority = 0
+shader = ExtResource("3_water")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_water"]
+material = SubResource("ShaderMaterial_water")
+size = Vector2(40, 14)
+subdivide_width = 48
+subdivide_depth = 18
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_water_area"]
+size = Vector3(40, 1.2, 14)
 
 [node name="Main" type="Node3D" unique_id=1782040662]
 
@@ -37,17 +66,92 @@ transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0
 shadow_enabled = true
 
 [node name="Ground" type="StaticBody3D" parent="." unique_id=2118345685]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground" unique_id=5940971]
-mesh = SubResource("PlaneMesh_ground")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+mesh = SubResource("BoxMesh_land")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground" unique_id=1641905554]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-shape = SubResource("BoxShape3D_ground")
+shape = SubResource("BoxShape3D_land")
+
+[node name="Lake" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -13)
+
+[node name="Lakebed" type="StaticBody3D" parent="Lake"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Lake/Lakebed"]
+mesh = SubResource("BoxMesh_lakebed")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Lake/Lakebed"]
+shape = SubResource("BoxShape3D_lakebed")
+
+[node name="ShoreWall" type="StaticBody3D" parent="Lake"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 7.15)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Lake/ShoreWall"]
+shape = SubResource("BoxShape3D_shore_wall")
+
+[node name="Water" type="MeshInstance3D" parent="Lake"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0)
+cast_shadow = 0
+mesh = SubResource("PlaneMesh_water")
+
+[node name="FishingWater" type="Area3D" parent="Lake" groups=["fishing_water"]]
+monitoring = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Lake/FishingWater"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+shape = SubResource("BoxShape3D_water_area")
+
+[node name="Server" type="Node" parent="."]
+
+[node name="FishingAuthority" type="Node" parent="Server"]
+script = ExtResource("4_authority")
 
 [node name="Player" parent="." unique_id=2110010298 instance=ExtResource("1_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1187548174 node_paths=PackedStringArray("target")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 script = ExtResource("2_camera")
 target = NodePath("../Player")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Hint" type="Label" parent="UI"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -40.0
+offset_right = 420.0
+offset_bottom = -12.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.8)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.6)
+theme_override_constants/outline_size = 4
+text = "WASD 이동 · 물가에서 Space 낚시"
+
+[node name="Toast" type="Label" parent="UI"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -120.0
+offset_right = 300.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.75)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+script = ExtResource("5_toast")
+
+[connection signal="message" from="Player/FishingController" to="UI/Toast" method="show_message"]

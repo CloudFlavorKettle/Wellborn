@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="PackedScene" path="res://assets/characters/wellborn_01.vrm" id="2_model"]
 [ext_resource type="AnimationLibrary" path="res://assets/quaternius/ual/ual_animations.res" id="3_anims"]
+[ext_resource type="Script" path="res://scripts/fishing/fishing_rod.gd" id="4_rod"]
+[ext_resource type="Script" path="res://scripts/fishing/fishing_controller.gd" id="5_fishing"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.3
@@ -23,3 +25,9 @@ libraries = {
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.725, 0)
 shape = SubResource("CapsuleShape3D_player")
+
+[node name="FishingRod" type="Node3D" parent="."]
+script = ExtResource("4_rod")
+
+[node name="FishingController" type="Node" parent="."]
+script = ExtResource("5_fishing")

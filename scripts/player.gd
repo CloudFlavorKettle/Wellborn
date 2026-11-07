@@ -24,6 +24,14 @@ const BODY_PART_SUFFIXES: PackedStringArray = ["_Body", "_Head", "_ArmLeft", "_A
 @onready var _anim: AnimationPlayer = $AnimationPlayer
 @onready var _model: Node3D = $Model
 
+## 낚시 같은 행동 중에는 이동 입력을 받지 않는다. 애니메이션도 행동 쪽이 정한다.
+var input_locked: bool = false:
+	set(value):
+		input_locked = value
+		if not value:
+			_action_anim = &""
+var _action_anim: StringName = &""
+
 
 func _ready() -> void:
 	if strip_equipment:
@@ -46,7 +54,9 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 
-	var input_dir: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input_dir: Vector2 = Vector2.ZERO
+	if not input_locked:
+		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction: Vector3 = Vector3(input_dir.x, 0.0, input_dir.y)
 	var target_velocity: Vector3 = direction * SPEED
 
@@ -61,7 +71,24 @@ func _physics_process(delta: float) -> void:
 	_update_animation()
 
 
+## 행동 애니메이션을 한 번 재생하고, 끝나면 대기로 돌아간다. 이동 잠금 중에만 의미가 있다.
+func play_action(anim_name: StringName) -> void:
+	if not _anim.has_animation(anim_name):
+		return
+	_action_anim = anim_name
+	_anim.speed_scale = 1.0
+	_anim.play(anim_name, 0.15)
+	_anim.queue(ANIM_IDLE)
+
+
 func _update_animation() -> void:
+	if input_locked:
+		_anim.speed_scale = 1.0
+		if _action_anim != &"" and _anim.current_animation != _action_anim:
+			_action_anim = &""
+		if _action_anim == &"" and _anim.current_animation != ANIM_IDLE:
+			_anim.play(ANIM_IDLE, 0.25)
+		return
 	var horizontal_speed: float = Vector2(velocity.x, velocity.z).length()
 	var wanted: StringName = ANIM_WALK if horizontal_speed > 0.1 else ANIM_IDLE
 	if _anim.current_animation != wanted:

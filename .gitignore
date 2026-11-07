@@ -4,3 +4,6 @@
 
 # 구매/재배포 불가 에셋 (공개 리포 제외)
 assets_private/
+
+# 로컬 도구 설정 (내 PC의 Rider MCP 포트 등)
+.mcp.json

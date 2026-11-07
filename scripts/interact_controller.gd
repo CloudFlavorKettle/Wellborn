@@ -13,11 +13,15 @@ const DENY_TEXT: Dictionary = {
 	"no_fish": "구울 물고기가 없어요.",
 	"nothing_ready": "아직 익은 게 없어요.",
 	"no_food": "먹을 게 없어요.",
+	"empty": "건넬 게 없어요.",
 	"raw_only": "날것은 먹기 힘들어요. 모닥불에 구워 보세요.",
 }
 
 var _cooking: CookingAuthority
 var _breath: BreathAuthority
+var _give: GiveAuthority
+var _near_player: CharacterBody3D
+var _bag_count: int = 0
 var _inventory: InventoryAuthority
 var _player: CharacterBody3D
 var _fishing: FishingController
@@ -37,9 +41,13 @@ func _ready() -> void:
 	_breath = get_tree().get_first_node_in_group(&"breath_authority")
 	if _breath:
 		_breath.client_event.connect(_on_breath_event)
+	_give = get_tree().get_first_node_in_group(&"give_authority")
+	if _give:
+		_give.client_event.connect(_on_give_event)
 	if _inventory:
 		_inventory.local_changed.connect(func(items: Array) -> void:
 			_raw_count = items.filter(InventoryAuthority.is_raw_fish).size()
+			_bag_count = items.size()
 			_food_name = ""
 			for it: Dictionary in items:
 				if String(it.get("id", "")).begins_with("cooked:"):
@@ -64,6 +72,14 @@ func _unhandled_input(e: InputEvent) -> void:
 		press()
 	elif e.is_action_pressed(&"eat"):
 		eat()
+	elif e.is_action_pressed(&"give"):
+		give()
+
+
+## G 한 번. 가장 가까운 다른 사람에게 가방 물건 하나를 준다 (무엇을 줄지는 서버가 고른다).
+func give() -> void:
+	if _give and _near_player:
+		_give.rpc_request_give.rpc_id(1, _near_player.peer_id())
 
 
 ## E 한 번. 가방의 먹을 것을 하나 먹는다 (서버가 고른다).
@@ -87,6 +103,7 @@ func _physics_process(_delta: float) -> void:
 	if not _is_mine():
 		return
 	_near_fire = _nearest_fire()
+	_near_player = _nearest_player()
 	var ctx: String = ""
 	if _fishing.phase != FishingController.Phase.IDLE:
 		ctx = "찌가 쑥 들어가면 Space!"
@@ -101,6 +118,8 @@ func _physics_process(_delta: float) -> void:
 		ctx = "Space: 낚시"
 	if _food_name != "":
 		ctx += "\nE: %s 먹기" % _food_name
+	if _near_player and _bag_count > 0:
+		ctx += "\nG: %s에게 건네기" % _near_player.display_name
 	if ctx != _last_context:
 		_last_context = ctx
 		context_changed.emit(ctx)
@@ -111,6 +130,37 @@ func _gesture() -> void:
 	if _near_fire:
 		_player.face_toward(_near_fire.global_position)
 	_player.play_action(&"Interact")
+
+
+func _nearest_player() -> CharacterBody3D:
+	if _give == null:
+		return null
+	var best: CharacterBody3D = null
+	var best_d: float = _give.give_distance
+	var p: Vector3 = _player.global_position
+	for n: Node in _player.get_parent().get_children():
+		if n == _player or not n is CharacterBody3D:
+			continue
+		var d: float = (n as Node3D).global_position.distance_to(p)
+		if d <= best_d:
+			best_d = d
+			best = n
+	return best
+
+
+func _on_give_event(kind: StringName, data: Dictionary) -> void:
+	if not _is_mine() or int(data.get("player", 0)) != _player.peer_id():
+		return
+	var n: String = _inventory.item_name(data.get("item", "")) if data.has("item") else ""
+	match kind:
+		&"gave":
+			_player.play_action(&"Interact")
+			message.emit("%s에게 %s%s 건넸어요." % [data["to_name"], n, FishingController._object_particle(n)])
+		&"received":
+			_player.play_action(&"Interact")
+			message.emit("%s이(가) %s%s 주었어요." % [data["from_name"], n, FishingController._object_particle(n)])
+		&"denied":
+			message.emit(DENY_TEXT.get(data.get("reason", ""), ""))
 
 
 func _nearest_fire() -> Campfire:

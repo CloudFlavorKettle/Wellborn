@@ -6,6 +6,7 @@ extends Node
 ##   fish_once  물가로 걸어가 한 번 낚시하고, 입질에 챔질한 뒤 종료
 ##   fish       계속 낚시
 ##   cook_once  한 마리 낚고, 모닥불로 가서 올리고, 익으면 꺼내 먹은 뒤 종료
+##   give_once  한 마리 낚고, 가장 가까운 다른 사람에게 걸어가 건넨 뒤 종료
 ##   idle       가만히 서서 주변 플레이어 수만 보고
 ##   wander     부하 측정용. 육지를 돌아다니다가 물가에 닿으면 가끔 낚시한다. 보고는 하지 않는다.
 
@@ -36,6 +37,14 @@ func _ready() -> void:
 	var cook: CookingAuthority = get_tree().get_first_node_in_group(&"cooking_authority")
 	if cook:
 		cook.client_event.connect(_on_cook_event)
+	var gv: GiveAuthority = get_tree().get_first_node_in_group(&"give_authority")
+	if gv:
+		gv.client_event.connect(func(kind: StringName, data: Dictionary) -> void:
+			Net.log_line("bot 건네기 이벤트: %s %s" % [kind, data])
+			if routine == "give_once" and kind == &"gave":
+				await get_tree().create_timer(1.5).timeout
+				Net.log_line("bot 종료 (건네기 완료)")
+				get_tree().quit())
 	var br: BreathAuthority = get_tree().get_first_node_in_group(&"breath_authority")
 	if br:
 		br.client_event.connect(func(kind: StringName, data: Dictionary) -> void:
@@ -99,6 +108,28 @@ func _physics_process(delta: float) -> void:
 		"put":
 			_interact.press()
 			_state = "cooking"
+		"walk_player":
+			var target: Node3D = null
+			var best: float = INF
+			for n: Node in _player.get_parent().get_children():
+				if n != _player:
+					var d: float = (n as Node3D).global_position.distance_to(_player.global_position)
+					if d < best:
+						best = d
+						target = n
+			if target == null:
+				return
+			var to: Vector3 = target.global_position - _player.global_position
+			to.y = 0.0
+			if to.length() < 1.6:
+				_player.input_override = Vector2.ZERO
+				if _player.get_real_velocity().length() < 0.05:
+					_state = "give"
+			else:
+				_player.input_override = Vector2(to.x, to.z).normalized()
+		"give":
+			_interact.give()
+			_state = "gave"
 		_:
 			pass
 
@@ -163,7 +194,10 @@ func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
 		&"result":
 			if data.get("outcome") == "caught":
 				_catches += 1
-			if routine == "cook_once":
+			if routine == "give_once":
+				await get_tree().create_timer(2.0).timeout
+				_state = "walk_player"
+			elif routine == "cook_once":
 				await get_tree().create_timer(2.0).timeout
 				var fire: Node3D = get_tree().get_first_node_in_group(&"campfire")
 				_fire_target = fire.global_position

@@ -22,6 +22,7 @@ const NAME_MAX_LEN: int = 12
 @onready var _inventory: InventoryAuthority = $Server/InventoryAuthority
 @onready var _cooking: CookingAuthority = $Server/CookingAuthority
 @onready var _breath: BreathAuthority = $Server/BreathAuthority
+@onready var _give: GiveAuthority = $Server/GiveAuthority
 @onready var _breath_bar: ProgressBar = get_node_or_null("UI/Breath/Bar")
 @onready var _context: Label = get_node_or_null("UI/Context")
 @onready var _bag_label: Label = get_node_or_null("UI/Inventory")
@@ -50,6 +51,7 @@ func _ready() -> void:
 		_cooking.inventory = _inventory
 		_cooking.register_fires()
 		_breath.inventory = _inventory
+		_give.inventory = _inventory
 		# 낚은 물고기는 가방으로.
 		_authority.event.connect(func(pid: int, kind: StringName, data: Dictionary) -> void:
 			if kind == &"result" and data.get("outcome") == "caught":
@@ -89,6 +91,7 @@ func _add_player(peer: int) -> void:
 	_inventory.register_player(peer)
 	_cooking.register_player(peer, p)
 	_breath.register_player(peer, p)
+	_give.register_player(peer, p)
 	Net.log_line("플레이어 입장: %d (현재 %d명)" % [peer, _players.get_child_count()])
 	_on_player_node_added(p)
 	_update_interest()
@@ -143,6 +146,7 @@ func _remove_player(peer: int) -> void:
 	_inventory.unregister_player(peer)
 	_cooking.unregister_player(peer)
 	_breath.unregister_player(peer)
+	_give.unregister_player(peer)
 	var p: Node = _players.get_node_or_null(str(peer))
 	if p:
 		p.queue_free()

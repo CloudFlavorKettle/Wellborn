@@ -1,3 +1,7 @@
+# 텍스트 파일은 LF로 고정 (Godot가 LF로 저장하므로 CRLF 변환 시 매번 변경으로 잡힘)
+* text=auto eol=lf
+
+# 바이너리 에셋은 Git LFS
 *.glb filter=lfs diff=lfs merge=lfs -text
 *.vrm filter=lfs diff=lfs merge=lfs -text
 *.vroid filter=lfs diff=lfs merge=lfs -text

@@ -23,6 +23,9 @@ const NAME_MAX_LEN: int = 12
 @onready var _hint: Label = get_node_or_null("UI/Hint")
 
 var _interest_timer: float = 0.0
+var _stats_timer: float = 0.0
+var _stats_frames: int = 0
+var _stats_physics_ms: float = 0.0
 var _spawn_count: int = 0
 
 
@@ -132,6 +135,8 @@ func _remove_player(peer: int) -> void:
 func _physics_process(delta: float) -> void:
 	if not multiplayer.has_multiplayer_peer() or not multiplayer.is_server():
 		return
+	if Net.stats:
+		_collect_stats(delta)
 	_interest_timer += delta
 	if _interest_timer >= interest_interval:
 		_interest_timer = 0.0
@@ -151,6 +156,26 @@ func _update_interest() -> void:
 			var see: bool = (viewer as Node3D).global_position.distance_to((target as Node3D).global_position) <= interest_radius
 			if sync.get_visibility_for(viewer_peer) != see:
 				sync.set_visibility_for(viewer_peer, see)
+
+
+## 개발용 부하 측정. 5초 평균을 한 줄로 남긴다.
+func _collect_stats(delta: float) -> void:
+	_stats_frames += 1
+	_stats_physics_ms += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+	_stats_timer += delta
+	if _stats_timer < 5.0:
+		return
+	var host: ENetConnection = (multiplayer.multiplayer_peer as ENetMultiplayerPeer).host
+	var sent_kb: float = host.pop_statistic(ENetConnection.HOST_TOTAL_SENT_DATA) / 1024.0 / _stats_timer
+	var recv_kb: float = host.pop_statistic(ENetConnection.HOST_TOTAL_RECEIVED_DATA) / 1024.0 / _stats_timer
+	Net.log_line("stats players=%d physics_ms=%.3f mem_mb=%.1f sent_kbps=%.1f recv_kbps=%.1f" % [
+		_players.get_child_count(),
+		_stats_physics_ms / _stats_frames,
+		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
+		sent_kb, recv_kb])
+	_stats_timer = 0.0
+	_stats_frames = 0
+	_stats_physics_ms = 0.0
 
 
 ## 이 플레이어를 볼 수 있는 접속 ID들 (낚시 이벤트 전달용).

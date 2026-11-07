@@ -6,6 +6,7 @@ extends Node
 ##   fish_once  물가로 걸어가 한 번 낚시하고, 입질에 챔질한 뒤 종료
 ##   fish       계속 낚시
 ##   idle       가만히 서서 주변 플레이어 수만 보고
+##   wander     부하 측정용. 육지를 돌아다니다가 물가에 닿으면 가끔 낚시한다. 보고는 하지 않는다.
 
 var routine: String = "fish_once"
 ## `--shot=폴더`를 주면 3초마다 화면을 저장한다 (최대 8장). 화면 있는 실행에서만 의미가 있다.
@@ -18,6 +19,8 @@ var _ctl: FishingController
 var _state: String = "walk"
 var _report_t: float = 0.0
 var _catches: int = 0
+var _wander_t: float = 0.0
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 
 func _ready() -> void:
@@ -31,6 +34,9 @@ func _ready() -> void:
 			_shot_dir = arg.trim_prefix("--shot=")
 	if routine == "idle":
 		_state = "idle"
+	elif routine == "wander":
+		_rng.randomize()
+		_state = "wander"
 
 
 func _process(delta: float) -> void:
@@ -46,6 +52,9 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _state == "wander":
+		_wander(delta)
+		return
 	_report_t += delta
 	if _report_t >= 2.0:
 		_report_t = 0.0
@@ -68,7 +77,33 @@ func _physics_process(delta: float) -> void:
 			pass
 
 
+func _wander(delta: float) -> void:
+	_wander_t -= delta
+	if _ctl.phase != FishingController.Phase.IDLE:
+		_player.input_override = Vector2.ZERO
+		return
+	var pos: Vector3 = _player.global_position
+	if _wander_t <= 0.0:
+		_wander_t = _rng.randf_range(1.5, 3.5)
+		var dir: Vector2 = Vector2.from_angle(_rng.randf() * TAU)
+		# 땅 가운데 쪽으로 살짝 끌어당겨 맵 밖으로 새지 않게.
+		var to_center: Vector2 = Vector2(-pos.x, 4.0 - pos.z) * 0.05
+		_player.input_override = (dir + to_center).limit_length(1.0)
+		# 물가에서 물을 보고 있으면 가끔 낚시.
+		if pos.z < -4.8 and _rng.randf() < 0.35:
+			_player.input_override = Vector2(0.0, -1.0)
+			await get_tree().create_timer(0.4).timeout
+			_player.input_override = Vector2.ZERO
+			await get_tree().create_timer(0.3).timeout
+			_ctl.press()
+
+
 func _on_event(pid: int, kind: StringName, data: Dictionary) -> void:
+	if routine == "wander":
+		if pid == _player.peer_id() and kind == &"bite":
+			await get_tree().create_timer(_rng.randf_range(0.1, 0.6)).timeout
+			_ctl.press()
+		return
 	if pid != _player.peer_id():
 		Net.log_line("bot: 다른 플레이어 %d의 낚시 %s %s" % [pid, kind, data])
 		return

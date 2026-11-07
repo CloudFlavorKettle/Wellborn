@@ -63,6 +63,11 @@ var input_locked: bool = false:
 var input_override: Variant = null
 
 var _remote_input: Vector2 = Vector2.ZERO
+## 클라이언트가 마지막으로 서버에 보낸 입력과 그 뒤 지난 시간. 바뀔 때와 일정 간격으로만 보낸다.
+var _sent_input: Vector2 = Vector2(INF, INF)
+var _since_sent: float = 0.0
+## 입력이 그대로여도 이 간격(초)마다 한 번은 다시 보낸다. 패킷이 빠져도 서버가 곧 따라잡게.
+const INPUT_RESEND_INTERVAL: float = 0.2
 var _action_anim: StringName = &""
 
 ## 애니메이션은 모델과 분리된 공용 라이브러리(Quaternius UAL, 휴머노이드 리타겟)를 쓴다.
@@ -83,6 +88,13 @@ func is_local() -> bool:
 func _ready() -> void:
 	if strip_equipment:
 		_strip_equipment()
+	if Net.is_dedicated():
+		# 전용 서버는 보는 사람이 없다. 모델·애니메이션·스프링본 계산을 끄고 위치와 충돌만 판정한다.
+		_model.visible = false
+		_model.process_mode = Node.PROCESS_MODE_DISABLED
+		_anim.active = false
+		_name_tag.visible = false
+		return
 	_anim.play(ANIM_IDLE)
 	_apply_name()
 	_apply_color()
@@ -150,7 +162,11 @@ func _physics_process(delta: float) -> void:
 		server_rot_y = rotation.y
 		net_speed = Vector2(velocity.x, velocity.z).length()
 	elif is_local():
-		submit_input.rpc_id(1, local_input)
+		_since_sent += delta
+		if local_input != _sent_input or _since_sent >= INPUT_RESEND_INTERVAL:
+			submit_input.rpc_id(1, local_input)
+			_sent_input = local_input
+			_since_sent = 0.0
 		_simulate(local_input, delta)
 		_reconcile(local_input, delta)
 	else:
@@ -208,6 +224,8 @@ func play_action(anim_name: StringName) -> void:
 
 
 func _update_animation() -> void:
+	if not _anim.active:
+		return
 	if input_locked:
 		_anim.speed_scale = 1.0
 		if _action_anim != &"" and _anim.current_animation != _action_anim:

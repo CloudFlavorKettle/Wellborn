@@ -29,6 +29,9 @@ var _t: float = 0.0
 
 
 func _ready() -> void:
+	if Net.is_dedicated():
+		set_process(false)  # 전용 서버엔 연출이 필요 없다.
+		return
 	_build_rod()
 	_build_bobber()
 	_build_line()

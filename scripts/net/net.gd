@@ -8,6 +8,8 @@ extends Node
 ##   --name=이름           머리 위에 보일 이름. 서버가 다듬는다. 없으면 서버가 정해 준다.
 ##   --bot=이름            개발용 자동 조작 (scripts/net/dev_bot.gd).
 ##   --interest-radius=M   (서버, 개발용) 관심 영역 반경을 바꾼다. 0 이하면 월드 기본값.
+##   --max-clients=N       (서버, 개발용) 접속 상한을 바꾼다. 부하 측정용.
+##   --stats               (서버, 개발용) 5초마다 인원·처리 시간·메모리·네트워크량을 기록한다.
 ##   (인자 없음)            호스트: 서버 겸 플레이어 1. 에디터에서 F5로 혼자 개발할 때 쓴다.
 ##
 ## 예) 서버:     godot --headless --path . -- --server
@@ -25,6 +27,8 @@ var port: int = DEFAULT_PORT
 var bot: String = ""
 var player_name: String = ""
 var interest_radius_override: float = 0.0
+var max_clients: int = MAX_CLIENTS
+var stats: bool = false
 
 
 func _init() -> void:
@@ -45,8 +49,20 @@ func _init() -> void:
 			player_name = arg.trim_prefix("--name=")
 		elif arg.begins_with("--bot="):
 			bot = arg.trim_prefix("--bot=")
+		elif arg.begins_with("--max-clients="):
+			max_clients = maxi(1, arg.trim_prefix("--max-clients=").to_int())
+		elif arg == "--stats":
+			stats = true
 		elif arg.begins_with("--interest-radius="):
 			interest_radius_override = arg.trim_prefix("--interest-radius=").to_float()
+
+
+func _ready() -> void:
+	# 화면 없는 실행은 프레임 제한이 없어 CPU를 헛돌린다. 판정(물리)은 초당 60번이니 그 이상 돌 이유가 없다.
+	if mode == Mode.SERVER:
+		Engine.max_fps = 60
+	elif bot != "":
+		Engine.max_fps = 30
 
 
 func is_dedicated() -> bool:
@@ -60,7 +76,7 @@ func start() -> Error:
 	if mode == Mode.CLIENT:
 		err = peer.create_client(address, port)
 	else:
-		err = peer.create_server(port, MAX_CLIENTS)
+		err = peer.create_server(port, max_clients)
 	if err != OK:
 		push_error("[net] 시작 실패 (%s, 포트 %d): %s" % [Mode.keys()[mode], port, error_string(err)])
 		return err

@@ -4,7 +4,7 @@ extends Node
 ## - 누구의 캐릭터든: 서버가 보낸 이벤트(client_event)로 그 사람의 낚싯대·찌·동작을 보여 준다.
 ## - 내 캐릭터일 때만: 입력을 서버에 요청(RPC)으로 보내고, 메시지와 카메라를 다룬다.
 ## 여기서는 아무것도 판정하지 않는다. 입질 시점·성공 여부·물고기는 서버가 정한다.
-## 플레이어 노드의 자식으로 두고, 형제 노드로 FishingRod가 있어야 한다.
+## 플레이어 노드의 자식으로 두고, 형제 노드로 FishingRod와 InteractController가 있어야 한다.
 
 signal message(text: String)
 
@@ -40,14 +40,10 @@ func _is_mine() -> bool:
 	return _player.has_method(&"is_local") and _player.is_local()
 
 
-func _unhandled_input(e: InputEvent) -> void:
-	if _authority == null or not _is_mine() or not e.is_action_pressed(&"fish"):
-		return
-	press()
-
-
-## 낚시 버튼 한 번. 개발용 봇도 이걸 부른다.
+## 낚시 버튼 한 번. 키 입력은 InteractController가 받아서 상황에 따라 여기로 넘긴다.
 func press() -> void:
+	if _authority == null:
+		return
 	match phase:
 		Phase.IDLE:
 			var forward: Vector3 = -_player.global_basis.z

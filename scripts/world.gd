@@ -19,6 +19,10 @@ const NAME_MAX_LEN: int = 12
 @onready var _spawner: MultiplayerSpawner = $PlayerSpawner
 @onready var _camera: Camera3D = $Camera3D
 @onready var _authority: FishingAuthority = $Server/FishingAuthority
+@onready var _inventory: InventoryAuthority = $Server/InventoryAuthority
+@onready var _cooking: CookingAuthority = $Server/CookingAuthority
+@onready var _context: Label = get_node_or_null("UI/Context")
+@onready var _bag_label: Label = get_node_or_null("UI/Inventory")
 @onready var _toast: Label = get_node_or_null("UI/Toast")
 @onready var _hint: Label = get_node_or_null("UI/Hint")
 
@@ -41,6 +45,12 @@ func _ready() -> void:
 		multiplayer.peer_connected.connect(_add_player)
 		multiplayer.peer_disconnected.connect(_remove_player)
 		_authority.viewers_of = _viewers_of
+		_cooking.inventory = _inventory
+		_cooking.register_fires()
+		# 낚은 물고기는 가방으로.
+		_authority.event.connect(func(pid: int, kind: StringName, data: Dictionary) -> void:
+			if kind == &"result" and data.get("outcome") == "caught":
+				_inventory.add(pid, String(data["fish_id"])))
 		if not Net.is_dedicated():
 			_add_player(1)
 	else:
@@ -73,6 +83,8 @@ func _add_player(peer: int) -> void:
 	sync.set_visibility_for(peer, true)
 	_players.add_child(p, true)
 	_authority.register_player(peer, p)
+	_inventory.register_player(peer)
+	_cooking.register_player(peer, p)
 	Net.log_line("플레이어 입장: %d (현재 %d명)" % [peer, _players.get_child_count()])
 	_on_player_node_added(p)
 	_update_interest()
@@ -124,6 +136,8 @@ static func sanitize_name(raw: String) -> String:
 
 func _remove_player(peer: int) -> void:
 	_authority.unregister_player(peer)
+	_inventory.unregister_player(peer)
+	_cooking.unregister_player(peer)
 	var p: Node = _players.get_node_or_null(str(peer))
 	if p:
 		p.queue_free()
@@ -203,8 +217,15 @@ func _on_player_node_added(node: Node) -> void:
 	if Net.player_name != "":
 		rpc_set_name.rpc_id(1, Net.player_name)
 	var ctl: FishingController = p.get_node("FishingController")
+	var interact: InteractController = p.get_node("InteractController")
 	if _toast:
 		ctl.message.connect(_toast.show_message)
+		interact.message.connect(_toast.show_message)
+	if _context:
+		interact.context_changed.connect(func(t: String) -> void: _context.text = t)
+	if _bag_label:
+		_inventory.local_changed.connect(func(items: Array) -> void:
+			_bag_label.text = "가방: 비어 있음" if items.is_empty() else "가방\n" + _inventory.describe(items))
 	if Net.bot != "":
 		var bot: Node = DEV_BOT.new()
 		bot.name = "DevBot"

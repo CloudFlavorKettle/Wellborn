@@ -5,6 +5,7 @@
 [ext_resource type="AnimationLibrary" path="res://assets/quaternius/ual/ual_animations.res" id="3_anims"]
 [ext_resource type="Script" path="res://scripts/fishing/fishing_rod.gd" id="4_rod"]
 [ext_resource type="Script" path="res://scripts/fishing/fishing_controller.gd" id="5_fishing"]
+[ext_resource type="Script" path="res://scripts/interact_controller.gd" id="6_interact"]
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_player"]
 properties/0/path = NodePath(".:server_pos")
@@ -48,6 +49,9 @@ script = ExtResource("4_rod")
 
 [node name="FishingController" type="Node" parent="."]
 script = ExtResource("5_fishing")
+
+[node name="InteractController" type="Node" parent="."]
+script = ExtResource("6_interact")
 
 [node name="Sync" type="MultiplayerSynchronizer" parent="."]
 root_path = NodePath("..")

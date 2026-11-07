@@ -56,7 +56,7 @@ There are no classes. What you do is who you become.
 | Stage | Goal | Status |
 |---|---|---|
 | **0** | Engine, tools, repository, design doc | ✅ Done |
-| **1 · The Waterside** | Two players fishing and grilling by a lake. Waking at the Well, fishing, campfire cooking, sharing food, a 2–4 player dedicated server. No death, no pressure. | 🚧 In progress — character, movement, fishing, campfire cooking, eating (Breath), handing food to friends, and a 2–4 player dedicated server are in |
+| **1 · The Waterside** | Two players fishing and grilling by a lake. Waking at the Well, fishing, campfire cooking, sharing food, a 2–4 player dedicated server. No death, no pressure. | 🚧 In progress — character, movement, fishing, campfire cooking, eating (Breath), handing food to friends, sitting, and a 2–4 player dedicated server are in |
 | **2 · Breath** | The full Breath system, death and returning at the Well, leaving items behind, gathering and crafting, water-shaping, a few NPCs. First public build. | Planned |
 | **3 · The World** | Real CORE/CONTENT split with JSON content packs, server owner settings, the first community content, combat. | Planned |
 | **4+** | Life-shaping, generational story, identity across worlds. Growing to a larger world is an option, not a promise. | Later |
@@ -73,7 +73,7 @@ The full design document (Korean) lives in [CLAUDE.md](CLAUDE.md).
    ```
 3. Open `project.godot` in **[Godot 4.7](https://godotengine.org/download)** and press **F5**.
 
-**Controls:** `WASD` or arrow keys to move (relative to the camera), hold the right mouse button and drag to orbit the camera, mouse wheel to zoom, `Space` by the water to fish or at the campfire to grill and take food, `E` to eat, `G` to hand an item to the player next to you.
+**Controls:** `WASD` or arrow keys to move (relative to the camera), hold the right mouse button and drag to orbit the camera, mouse wheel to zoom, `Space` by the water to fish or at the campfire to grill and take food, `E` to eat, `G` to hand an item to the player next to you, `C` to sit down or stand up (moving also stands you up).
 
 #### Playing together
 
@@ -159,7 +159,7 @@ The project is at a very early stage and the architecture is still moving, so co
 | 단계 | 목표 | 상태 |
 |---|---|---|
 | **0** | 엔진, 도구, 저장소, 설계 문서 | ✅ 완료 |
-| **1 「물가」** | 둘이서 낚시하고 모닥불에 구워 먹는 게임. 우물에서 깨어나기, 낚시, 모닥불 요리, 음식 나눠 주기, 2~4명 전용 서버. 죽음도 긴장도 없음. | 🚧 진행 중 — 캐릭터, 이동, 낚시, 모닥불 굽기, 먹기(숨), 건네기, 2~4명 전용 서버 완료 |
+| **1 「물가」** | 둘이서 낚시하고 모닥불에 구워 먹는 게임. 우물에서 깨어나기, 낚시, 모닥불 요리, 음식 나눠 주기, 2~4명 전용 서버. 죽음도 긴장도 없음. | 🚧 진행 중 — 캐릭터, 이동, 낚시, 모닥불 굽기, 먹기(숨), 건네기, 앉기, 2~4명 전용 서버 완료 |
 | **2 「숨」** | 숨 시스템 전체, 죽음과 우물 부활, 물건 두고 오기, 채집·제작, 물로 빚기, NPC 몇 명. 첫 공개 빌드. | 예정 |
 | **3 「세계」** | CORE/CONTENT 분리와 JSON 콘텐츠 팩, 서버 주인 설정, 첫 유저 콘텐츠, 전투. | 예정 |
 | **4 이후** | 생명 빚기, 세대 스토리, 서버 간 정체성 이동. 더 큰 세계로 키우는 건 약속이 아닌 선택지. | 나중에 |
@@ -176,7 +176,7 @@ The project is at a very early stage and the architecture is still moving, so co
    ```
 3. **[Godot 4.7](https://godotengine.org/download)**로 `project.godot`를 열고 **F5**로 실행합니다.
 
-**조작:** `WASD` 또는 방향키로 이동(카메라가 보는 방향 기준), 마우스 오른쪽 버튼을 누른 채 드래그로 시점 회전, 휠로 거리 조절, 물가에서 `Space`로 낚시, 모닥불 옆에서 `Space`로 올리기·꺼내기, `E`로 먹기, 옆 사람에게 `G`로 건네기.
+**조작:** `WASD` 또는 방향키로 이동(카메라가 보는 방향 기준), 마우스 오른쪽 버튼을 누른 채 드래그로 시점 회전, 휠로 거리 조절, 물가에서 `Space`로 낚시, 모닥불 옆에서 `Space`로 올리기·꺼내기, `E`로 먹기, 옆 사람에게 `G`로 건네기, `C`로 앉기·일어나기(움직여도 일어난다).
 
 #### 같이 하기
 

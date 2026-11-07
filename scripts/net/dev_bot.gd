@@ -7,6 +7,7 @@ extends Node
 ##   fish       계속 낚시
 ##   cook_once  한 마리 낚고, 모닥불로 가서 올리고, 익으면 꺼내 먹은 뒤 종료
 ##   give_once  한 마리 낚고, 가장 가까운 다른 사람에게 걸어가 건넨 뒤 종료
+##   sit        1초 걸은 뒤 앉아서 계속 있는다 (보고는 idle과 같음)
 ##   idle       가만히 서서 주변 플레이어 수만 보고
 ##   wander     부하 측정용. 육지를 돌아다니다가 물가에 닿으면 가끔 낚시한다. 보고는 하지 않는다.
 
@@ -57,6 +58,9 @@ func _ready() -> void:
 			_shot_dir = arg.trim_prefix("--shot=")
 	if routine == "idle":
 		_state = "idle"
+	elif routine == "sit":
+		_state = "sit_walk"
+		_wander_t = 1.0
 	elif routine == "wander":
 		_rng.randomize()
 		_state = "wander"
@@ -84,9 +88,20 @@ func _physics_process(delta: float) -> void:
 		var others: Array = []
 		for n: Node in _player.get_parent().get_children():
 			if n != _player:
-				others.append("%s@(%.1f,%.1f)" % [n.name, (n as Node3D).global_position.x, (n as Node3D).global_position.z])
-		Net.log_line("bot 보고: 내 위치 (%.2f, %.2f), 보이는 다른 플레이어 %s" % [_player.global_position.x, _player.global_position.z, others])
+				others.append("%s@(%.1f,%.1f)%s" % [n.name, (n as Node3D).global_position.x, (n as Node3D).global_position.z, " 앉음" if n.get(&"sitting") else ""])
+		Net.log_line("bot 보고: 내 위치 (%.2f, %.2f)%s, 보이는 다른 플레이어 %s" % [_player.global_position.x, _player.global_position.z, " 앉음" if _player.sitting else "", others])
 	match _state:
+		"sit_walk":
+			_wander_t -= delta
+			_player.input_override = Vector2(0.4, -1.0).normalized()
+			if _wander_t <= 0.0:
+				_player.input_override = Vector2.ZERO
+				_state = "sit_wait"
+		"sit_wait":
+			if _player.get_real_velocity().length() < 0.05:
+				_interact.sit()
+				Net.log_line("bot 앉기 요청")
+				_state = "sitting"
 		"walk":
 			_player.input_override = Vector2(0.0, -1.0)
 			if _player.global_position.z <= -5.2 or (_player.get_real_velocity().length() < 0.05 and _player.global_position.z < -4.5):

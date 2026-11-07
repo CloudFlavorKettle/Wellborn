@@ -153,6 +153,7 @@ func request_cast(player_id: int, target: Vector3) -> void:
 		"next_ms": _clock_ms + _rng.randf_range(first_wait_s.x, first_wait_s.y) * 1000.0,
 		"bite_end_ms": 0.0,
 	}
+	body.set(&"sitting", false)
 	body.set(&"server_locked", true)
 	event.emit(player_id, &"cast_ok", {"target": surface})
 

@@ -14,6 +14,10 @@ const TURN_SPEED: float = 12.0
 ## _Soft 변형은 tools/soften_animations.gd 로 생성. 원본을 쓰려면 "Idle", "Walk".
 const ANIM_IDLE: StringName = &"Idle_Soft"
 const ANIM_WALK: StringName = &"Walk_Soft"
+## 땅바닥 앉기. tools/make_sit_animations.gd 로 의자 앉기에서 생성.
+const ANIM_SIT: StringName = &"Sit_Ground"
+const ANIM_SIT_ENTER: StringName = &"Sit_Ground_Enter"
+const ANIM_SIT_EXIT: StringName = &"Sit_Ground_Exit"
 ## Walk 애니메이션이 1배속일 때의 실제 전진 속도(m/s). 이동 속도에 맞춰 재생 속도를 비례시켜 발 미끄러짐을 줄인다.
 const WALK_ANIM_SPEED: float = 0.85
 
@@ -50,6 +54,13 @@ var color_variant: int = 0:
 var server_pos: Vector3 = Vector3.ZERO
 var server_rot_y: float = 0.0
 var net_speed: float = 0.0
+## 앉아 있는가. 서버만 바꾼다 (C 요청으로 토글, 움직이면 일어남, 낚시 시작하면 일어남).
+var sitting: bool = false:
+	set(value):
+		var was: bool = sitting
+		sitting = value
+		if is_node_ready() and was != value and _anim.active:
+			_on_sitting_changed()
 
 ## 서버가 거는 이동 잠금 (낚시 중 등). 서버에서만 의미가 있다.
 var server_locked: bool = false
@@ -143,8 +154,24 @@ func _strip_equipment() -> void:
 		mesh_node.visible = is_body and not hidden_parts.has(mesh_node.name)
 
 
+## 클라이언트 → 서버: 앉기/일어나기 토글. 낚시 중엔 무시.
+@rpc("any_peer", "call_local", "reliable")
+func rpc_request_sit() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	if sender != peer_id() or server_locked:
+		return
+	sitting = not sitting
+
+
 ## 클라이언트 → 서버: 이번 프레임 이동 입력.
-@rpc("any_peer", "call_remote", "unreliable_ordered")
+## reliable인 이유: unreliable로 보내면 창 있는 클라이언트는 로컬에서도 입력 패킷이 심심찮게 사라졌다
+## (프레임이 한 번 튀면 ENet이 왕복 시간 변동으로 보고 unreliable 패킷을 몇 초간 버린다). 앉은 채로 키를 눌러도
+## 안 일어나는 식으로 드러난다. 입력은 작고 초당 몇 번이라 reliable 비용은 미미하다.
+@rpc("any_peer", "call_remote", "reliable")
 func submit_input(dir: Vector2) -> void:
 	if not multiplayer.is_server() or multiplayer.get_remote_sender_id() != peer_id():
 		return  # 남의 캐릭터를 조종하려는 요청은 버린다.
@@ -155,7 +182,9 @@ func _physics_process(delta: float) -> void:
 	var local_input: Vector2 = _read_local_input() if is_local() else Vector2.ZERO
 	if multiplayer.is_server():
 		var dir: Vector2 = local_input if is_local() else _remote_input
-		if server_locked:
+		if sitting and dir != Vector2.ZERO:
+			sitting = false  # 움직이면 일어난다
+		if server_locked or sitting:
 			dir = Vector2.ZERO
 		_simulate(dir, delta)
 		server_pos = global_position
@@ -167,8 +196,10 @@ func _physics_process(delta: float) -> void:
 			submit_input.rpc_id(1, local_input)
 			_sent_input = local_input
 			_since_sent = 0.0
-		_simulate(local_input, delta)
-		_reconcile(local_input, delta)
+		# 앉아 있으면 서버가 일어나라고 할 때까지 움직이지 않는다 (입력은 보내서 서버가 일어나게 한다).
+		var predicted: Vector2 = Vector2.ZERO if sitting else local_input
+		_simulate(predicted, delta)
+		_reconcile(predicted, delta)
 	else:
 		_follow_server(delta)
 	_update_animation()
@@ -232,16 +263,32 @@ func face_toward(point: Vector3) -> void:
 
 ## 행동 애니메이션을 한 번 재생하고, 끝나면 대기로 돌아간다. 이동 잠금 중에만 의미가 있다.
 func play_action(anim_name: StringName) -> void:
-	if not _anim.has_animation(anim_name):
-		return
+	if not _anim.has_animation(anim_name) or sitting:
+		return  # 앉아 있을 땐 손짓을 하지 않는다 (앉은 자세가 깨진다)
 	_action_anim = anim_name
 	_anim.speed_scale = 1.0
 	_anim.play(anim_name, 0.15)
 	_anim.queue(ANIM_IDLE)
 
 
+func _on_sitting_changed() -> void:
+	if sitting:
+		_action_anim = &""
+		_anim.speed_scale = 1.0
+		_anim.play(ANIM_SIT_ENTER, 0.2)
+		_anim.queue(ANIM_SIT)
+	elif not input_locked:
+		# 일어나기. 끝나면 대기, 움직이면 바로 끊긴다. 낚시가 시작되며 일어난 경우는 낚시 연출이 맡는다.
+		play_action(ANIM_SIT_EXIT)
+
+
 func _update_animation() -> void:
 	if not _anim.active:
+		return
+	if sitting:
+		if _anim.current_animation != ANIM_SIT_ENTER and _anim.current_animation != ANIM_SIT:
+			_anim.play(ANIM_SIT, 0.3)  # 늦게 들어와서 앉은 모습을 처음 보는 경우
+		_anim.speed_scale = 1.0
 		return
 	# 잠금 없이 재생한 행동(굽기 손짓)은 끝날 때까지 두고, 움직이면 바로 끊는다.
 	if not input_locked and _action_anim != &"":

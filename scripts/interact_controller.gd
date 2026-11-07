@@ -74,6 +74,14 @@ func _unhandled_input(e: InputEvent) -> void:
 		eat()
 	elif e.is_action_pressed(&"give"):
 		give()
+	elif e.is_action_pressed(&"sit"):
+		sit()
+
+
+## C 한 번. 앉거나 일어난다 (서버가 토글). 낚시 중엔 아무 일 없음.
+func sit() -> void:
+	if _fishing.phase == FishingController.Phase.IDLE:
+		_player.rpc_request_sit.rpc_id(1)
 
 
 ## G 한 번. 가장 가까운 다른 사람에게 가방 물건 하나를 준다 (무엇을 줄지는 서버가 고른다).
@@ -120,6 +128,8 @@ func _physics_process(_delta: float) -> void:
 		ctx += "\nE: %s 먹기" % _food_name
 	if _near_player and _bag_count > 0:
 		ctx += "\nG: %s에게 건네기" % _near_player.display_name
+	if _fishing.phase == FishingController.Phase.IDLE:
+		ctx += "\nC: 일어나기" if _player.sitting else "\nC: 앉기"
 	if ctx != _last_context:
 		_last_context = ctx
 		context_changed.emit(ctx)

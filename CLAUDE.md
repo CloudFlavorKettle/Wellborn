@@ -113,6 +113,7 @@
 - 가방: `InventoryAuthority`(서버). 물건 ID는 `<fish_id>`(날것), `cooked:<fish_id>`, `burnt`. 주인에게만 `rpc_bag`으로 통째로 보낸다. 접속 끊기면 사라진다(저장 없음).
 - 굽기: `CookingAuthority`(서버)가 모닥불 자리(3개)의 상태(empty→cooking→done→burnt, `data/cooking.json`의 12초/10초)를 돌린다. 요청 `rpc_request_put`/`rpc_request_take`, 자리 변화는 모두에게 `client_event`(모닥불은 고정물이라 관심 영역 없음). 늦게 들어오면 `rpc_full_state`.
 - 모닥불: `scripts/cooking/campfire.gd`(그룹 `campfire`, 노드 이름 = 모닥불 ID). 연출만. 전용 서버에선 충돌만 만든다.
+- 물고기 모델: `scripts/fish_model.gd`(`FishModel.create(fish_id, 길이)`). 기본 도형 조합 자작, 색은 `data/fish.json`의 `color`, `doneness`(0 날것→1 구운→2 탄)로 색이 변한다. 낚을 때와 꼬치에 쓴다. 꼬치에 꽂힌 생선은 움직이지 않는다(징그러움).
 - Space 한 키: `InteractController`가 받아서 모닥불 2.2m 안이면 굽기(익은 게 있으면 꺼내기, 없으면 올리기), 아니면 낚시로 넘긴다. 화면 아래 상황 안내도 여기서.
 - 개발용: `--bot=fish_once|fish|idle|wander|cook_once`, `--shot=폴더`, `--interest-radius=M`, `--port=N`, `--max-clients=N`, `--stats`. 서버 1 + 봇 클라이언트 2를 따로 띄워 검증한다. 부하는 `--stats` + `wander` 봇 여럿으로 잰다.
   - `--dev-script=경로`: 내 캐릭터가 생긴 뒤 리포 밖 GDScript(Node)를 월드에 붙인다. 실제 게임 흐름(오토로드 포함) 안에서 테스트할 때 쓴다. `godot --script`는 오토로드 `Net`을 못 찾아 더는 쓰지 않는다.

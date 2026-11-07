@@ -71,7 +71,8 @@ func _snapshot() -> Dictionary:
 	for id: String in _fires:
 		var arr: Array = []
 		for s: Dictionary in _fires[id]["slots"]:
-			arr.append({"state": s["state"], "item": s["item"], "player": s["player"]})
+			var elapsed: float = _clock_ms - float(s["start_ms"]) if s["state"] != "empty" else 0.0
+			arr.append({"state": s["state"], "item": s["item"], "player": s["player"], "elapsed_ms": elapsed})
 		out[id] = arr
 	return out
 
@@ -101,7 +102,8 @@ func rpc_full_state(snapshot: Dictionary) -> void:
 		var arr: Array = snapshot[fire_id]
 		for i in arr.size():
 			var s: Dictionary = arr[i]
-			client_event.emit(&"slot", {"fire": fire_id, "slot": i, "state": s["state"], "item": s["item"], "player": s["player"], "silent": true})
+			client_event.emit(&"slot", {"fire": fire_id, "slot": i, "state": s["state"], "item": s["item"], "player": s["player"],
+				"elapsed_ms": s.get("elapsed_ms", 0.0), "cook_ms": cook_time_ms, "burn_ms": burn_time_ms, "silent": true})
 
 
 func _sender() -> int:
@@ -199,7 +201,8 @@ func _physics_process(delta: float) -> void:
 
 func _emit_slot(fire_id: String, slot_idx: int, extra: Dictionary = {}) -> void:
 	var s: Dictionary = _fires[fire_id]["slots"][slot_idx]
-	var data: Dictionary = {"fire": fire_id, "slot": slot_idx, "state": s["state"], "item": s["item"], "player": s["player"]}
+	var data: Dictionary = {"fire": fire_id, "slot": slot_idx, "state": s["state"], "item": s["item"], "player": s["player"],
+		"elapsed_ms": (_clock_ms - float(s["start_ms"])) if s["state"] != "empty" else 0.0, "cook_ms": cook_time_ms, "burn_ms": burn_time_ms}
 	data.merge(extra)
 	event.emit(&"slot", data)
 

@@ -1,9 +1,9 @@
 {
-  "_comment": "물고기 데이터 (CONTENT). weight = 등장 비중, size_cm = 크기 범위, bite_window_ms = 입질 후 챔질할 수 있는 시간. 엔진 규칙은 scripts/fishing/fishing_authority.gd",
+  "_comment": "물고기 데이터 (CONTENT). weight = 등장 비중, size_cm = 크기 범위, bite_window_ms = 입질 후 챔질할 수 있는 시간, color = 몸통 색. 엔진 규칙은 scripts/fishing/fishing_authority.gd",
   "lake": [
-    { "id": "pale_chub",    "name": "피라미", "weight": 6, "size_cm": [8, 15],  "bite_window_ms": 1000 },
-    { "id": "crucian_carp", "name": "붕어",   "weight": 5, "size_cm": [12, 30], "bite_window_ms": 850 },
-    { "id": "catfish",      "name": "메기",   "weight": 2, "size_cm": [25, 55], "bite_window_ms": 700 },
-    { "id": "carp",         "name": "잉어",   "weight": 1, "size_cm": [35, 70], "bite_window_ms": 550 }
+    { "id": "pale_chub",    "name": "피라미", "color": "#9fb6c4", "weight": 6, "size_cm": [8, 15],  "bite_window_ms": 1000 },
+    { "id": "crucian_carp", "name": "붕어", "color": "#9a8a4a",   "weight": 5, "size_cm": [12, 30], "bite_window_ms": 850 },
+    { "id": "catfish",      "name": "메기", "color": "#4e4a44",   "weight": 2, "size_cm": [25, 55], "bite_window_ms": 700 },
+    { "id": "carp",         "name": "잉어", "color": "#c8862e",   "weight": 1, "size_cm": [35, 70], "bite_window_ms": 550 }
   ]
 }

@@ -100,7 +100,7 @@ func _show_result(data: Dictionary) -> void:
 			"late":
 				message.emit("놓쳤어요…")
 	_player.play_action(&"Interact")
-	await _rod.reel(outcome == "caught", int(data.get("size_cm", 20)))
+	await _rod.reel(outcome == "caught", int(data.get("size_cm", 20)), String(data.get("fish_id", "")))
 	if _is_mine():
 		_clear_camera_focus()
 	_player.input_locked = false

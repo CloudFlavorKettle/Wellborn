@@ -17,7 +17,8 @@ var _pivot: Node3D
 var _bobber: Node3D
 var _line_mesh: ImmediateMesh
 var _line: MeshInstance3D
-var _fish: MeshInstance3D
+var _fish: Node3D
+var _fish_id: String = ""
 
 var _bobber_out: bool = false
 var _float_base: Vector3 = Vector3.ZERO
@@ -35,7 +36,6 @@ func _ready() -> void:
 	_build_rod()
 	_build_bobber()
 	_build_line()
-	_build_fish()
 	show_gear(false)
 
 
@@ -95,14 +95,17 @@ func bite() -> void:
 
 
 ## 결과 연출. 잡았으면 물고기가 딸려 올라온다.
-func reel(caught: bool, size_cm: int = 20) -> void:
+func reel(caught: bool, size_cm: int = 20, fish_id: String = "") -> void:
 	_floating = false
 	_shake = 0.0
 	var from: Vector3 = _bobber.global_position
 	if caught:
-		var s: float = clampf(size_cm / 20.0, 0.6, 3.0)
-		_fish.scale = Vector3.ONE * s
-		_fish.visible = true
+		if _fish != null:
+			_fish.queue_free()
+		# 실제 크기(cm)대로. 멀리서도 보이게 1.6배 과장.
+		_fish = FishModel.create(fish_id, size_cm / 100.0 * 1.6)
+		_fish.top_level = true
+		add_child(_fish)
 		spawn_ripple(from, 1.4, 1.0)
 	var tw: Tween = create_tween()
 	var dur: float = 0.7 if caught else 0.45
@@ -114,7 +117,9 @@ func reel(caught: bool, size_cm: int = 20) -> void:
 	await tw.finished
 	if caught:
 		await get_tree().create_timer(0.9).timeout
-	_fish.visible = false
+	if _fish != null:
+		_fish.queue_free()
+		_fish = null
 	show_gear(false)
 
 
@@ -150,9 +155,10 @@ func _process(delta: float) -> void:
 		_bobber.global_position = _float_base + Vector3(0.0, bob - _dip, 0.0) + jitter
 	if _bobber_out:
 		_draw_line()
-	if _fish.visible:
-		_fish.global_position = _bobber.global_position + Vector3(0.0, -0.12 * _fish.scale.x, 0.0)
-		_fish.rotation.z = sin(_t * 18.0) * 0.5
+	if _fish != null:
+		# 꼬리가 아래, 머리가 줄 끝에 매달려 파닥거린다.
+		_fish.global_position = _bobber.global_position + Vector3(0.0, -0.05, 0.0)
+		_fish.rotation = Vector3(0.0, _t * 1.5, -PI / 2.0 + sin(_t * 18.0) * 0.35)
 
 
 func _draw_line() -> void:
@@ -243,24 +249,6 @@ func _build_line() -> void:
 	_line.material_override = m
 	add_child(_line)
 	_line.global_transform = Transform3D.IDENTITY
-
-
-func _build_fish() -> void:
-	_fish = MeshInstance3D.new()
-	_fish.name = "CaughtFish"
-	_fish.top_level = true
-	var cap: CapsuleMesh = CapsuleMesh.new()
-	cap.radius = 0.035
-	cap.height = 0.2
-	cap.radial_segments = 8
-	cap.rings = 2
-	var m: StandardMaterial3D = _flat_material(Color(0.62, 0.66, 0.62))
-	m.metallic = 0.4
-	m.roughness = 0.35
-	cap.material = m
-	_fish.mesh = cap
-	_fish.visible = false
-	add_child(_fish)
 
 
 func _flat_material(c: Color) -> StandardMaterial3D:

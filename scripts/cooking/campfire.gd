@@ -4,15 +4,21 @@ extends Node3D
 ## 그룹 "campfire"에 속하고, 노드 이름이 모닥불 ID다. 서버와 클라이언트 양쪽 씬에 있다.
 ## 클라이언트는 CookingAuthority.client_event로 자리 상태를 받아 생선 색과 연기를 바꾼다.
 
-const FISH_RAW: Color = Color(0.70, 0.74, 0.70)
-const FISH_COOKED: Color = Color(0.78, 0.52, 0.24)
-const FISH_BURNT: Color = Color(0.13, 0.09, 0.07)
+## 꼬치 세 개가 땅에 꽂히는 자리 (불 중심 기준 각도, 도). 플레이어가 오는 쪽(+Z)에 모아 둔다.
+const SKEWER_ANGLES: Array[float] = [-40.0, 0.0, 40.0]
+const SKEWER_FOOT_RADIUS: float = 0.62
+const SKEWER_LENGTH: float = 0.95
+const SKEWER_LEAN_DEG: float = 52.0
 
 ## 자리별 상태. CookingAuthority 설정과 같은 개수여야 한다 (register 때 맞춘다).
 var slot_states: Array[String] = ["empty", "empty", "empty"]
 
-var _fish: Array[MeshInstance3D] = []
-var _fish_mats: Array[StandardMaterial3D] = []
+var _skewers: Array[Node3D] = []       # 꼬치(막대) 노드. 생선은 이 아래에 붙는다.
+var _fish: Array = [null, null, null]  # FishModel 또는 null
+## 익는 정도 연출용 시계. 서버 시간과 정확히 같을 필요는 없다 (색만 바뀐다).
+var _slot_t0: Array[float] = [0.0, 0.0, 0.0]
+var _slot_cook_ms: Array[float] = [12000.0, 12000.0, 12000.0]
+var _slot_burn_ms: Array[float] = [10000.0, 10000.0, 10000.0]
 var _light: OmniLight3D
 var _smoke: CPUParticles3D
 var _burnt_smoke: CPUParticles3D
@@ -28,7 +34,7 @@ func _ready() -> void:
 		return
 	_build_logs()
 	_build_fire()
-	_build_grill()
+	_build_skewers()
 	var auth: CookingAuthority = get_tree().get_first_node_in_group(&"cooking_authority")
 	if auth:
 		auth.client_event.connect(_on_event)
@@ -52,34 +58,53 @@ func _on_event(kind: StringName, data: Dictionary) -> void:
 	if i >= slot_states.size():
 		return
 	slot_states[i] = String(data["state"])
-	_apply_slot(i)
+	_slot_cook_ms[i] = float(data.get("cook_ms", 12000.0))
+	_slot_burn_ms[i] = float(data.get("burn_ms", 10000.0))
+	# 서버가 알려 준 경과 시간만큼 앞당겨서, 늦게 봐도 색이 맞게.
+	_slot_t0[i] = Time.get_ticks_msec() - float(data.get("elapsed_ms", 0.0))
+	_apply_slot(i, String(data.get("item", "")))
 
 
-func _apply_slot(i: int) -> void:
-	if i >= _fish.size():
+func _apply_slot(i: int, item: String) -> void:
+	if i >= _skewers.size():
 		return
 	var state: String = slot_states[i]
-	_fish[i].visible = state != "empty"
-	match state:
-		"cooking":
-			_fish_mats[i].albedo_color = FISH_RAW
-		"done":
-			_fish_mats[i].albedo_color = FISH_COOKED
-		"burnt":
-			_fish_mats[i].albedo_color = FISH_BURNT
+	if state == "empty":
+		if _fish[i] != null:
+			(_fish[i] as Node).queue_free()
+			_fish[i] = null
+	elif _fish[i] == null:
+		var fish: FishModel = FishModel.create(item, 0.34)
+		# 꼬치를 따라 비스듬히, 머리가 위로 가게 꽂힌다.
+		fish.position = Vector3(0.0, SKEWER_LENGTH * 0.62, 0.0)
+		fish.rotation = Vector3(0.0, 0.0, PI / 2.0)
+		_skewers[i].add_child(fish)
+		_fish[i] = fish
 	_burnt_smoke.emitting = slot_states.has("burnt")
 	_sizzle.emitting = slot_states.has("cooking") or slot_states.has("done")
+
+
+func _doneness(i: int) -> float:
+	var elapsed: float = Time.get_ticks_msec() - _slot_t0[i]
+	match slot_states[i]:
+		"cooking":
+			return clampf(elapsed / _slot_cook_ms[i], 0.0, 0.98)
+		"done":
+			return 1.0 + clampf((elapsed - _slot_cook_ms[i]) / _slot_burn_ms[i], 0.0, 0.85)
+		"burnt":
+			return 2.0
+	return 0.0
 
 
 func _process(delta: float) -> void:
 	_t += delta
 	# 불빛 흔들림
 	_light.light_energy = 0.55 + sin(_t * 9.0) * 0.07 + sin(_t * 23.0) * 0.04
-	# 익는 중인 생선은 지글지글 떨린다
-	for i in _fish.size():
-		if slot_states[i] == "cooking" or slot_states[i] == "done":
-			_fish[i].position.y = 0.47 + sin(_t * 21.0 + i * 2.0) * 0.006
-			_fish[i].rotation.z = sin(_t * 17.0 + i) * 0.05
+	# 꼬치 위 생선: 색만 서서히 변한다. 꽂힌 채로 움직이면 징그러워서 흔들지 않는다.
+	for i in _skewers.size():
+		var fish: FishModel = _fish[i]
+		if fish != null:
+			fish.doneness = _doneness(i)
 
 
 # ---------- 생성 ----------
@@ -221,39 +246,31 @@ func _build_fire() -> void:
 	add_child(_light)
 
 
-func _build_grill() -> void:
-	var bar_mat: StandardMaterial3D = _flat(Color(0.2, 0.2, 0.22))
-	bar_mat.metallic = 0.6
-	bar_mat.roughness = 0.5
-	for i in 2:
-		var bar: MeshInstance3D = MeshInstance3D.new()
+func _build_skewers() -> void:
+	var wood: StandardMaterial3D = _flat(Color(0.52, 0.40, 0.26))
+	for i in SKEWER_ANGLES.size():
+		var a: float = deg_to_rad(SKEWER_ANGLES[i])
+		# 발치는 불 바깥, 끝은 불 쪽으로 기울어 불 위에 걸린다.
+		var foot: Vector3 = Vector3(sin(a) * SKEWER_FOOT_RADIUS, 0.0, cos(a) * SKEWER_FOOT_RADIUS)
+		var pivot: Node3D = Node3D.new()
+		pivot.position = foot
+		# 꼬치의 +Y가 막대 방향. 불 중심(원점) 쪽으로 눕힌다.
+		pivot.look_at_from_position(foot, Vector3.ZERO, Vector3.UP)
+		# look_at 뒤 -Z가 불 쪽. X축으로 음의 각만큼 돌리면 +Y(막대)가 -Z(불) 쪽으로 눕는다.
+		pivot.rotate_object_local(Vector3.RIGHT, -deg_to_rad(90.0 - SKEWER_LEAN_DEG))
+		add_child(pivot)
+		var stick: MeshInstance3D = MeshInstance3D.new()
 		var c: CylinderMesh = CylinderMesh.new()
-		c.top_radius = 0.012
-		c.bottom_radius = 0.012
-		c.height = 0.75
+		c.top_radius = 0.008
+		c.bottom_radius = 0.013
+		c.height = SKEWER_LENGTH
 		c.radial_segments = 5
 		c.rings = 1
-		c.material = bar_mat
-		bar.mesh = c
-		bar.rotation.z = PI / 2.0
-		bar.position = Vector3(0.0, 0.42, -0.1 + i * 0.2)
-		add_child(bar)
-	for i in 3:
-		var f: MeshInstance3D = MeshInstance3D.new()
-		var cap: CapsuleMesh = CapsuleMesh.new()
-		cap.radius = 0.055
-		cap.height = 0.3
-		cap.radial_segments = 8
-		cap.rings = 2
-		var m: StandardMaterial3D = _flat(FISH_RAW)
-		cap.material = m
-		f.mesh = cap
-		f.rotation = Vector3(PI / 2.0, 0.0, 0.0)
-		f.position = Vector3(-0.24 + i * 0.24, 0.47, 0.0)
-		f.visible = false
-		add_child(f)
-		_fish.append(f)
-		_fish_mats.append(m)
+		c.material = wood
+		stick.mesh = c
+		stick.position = Vector3(0.0, SKEWER_LENGTH * 0.5, 0.0)
+		pivot.add_child(stick)
+		_skewers.append(pivot)
 
 
 static var _soft_dot: GradientTexture2D
